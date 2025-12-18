@@ -1,8 +1,32 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src",
+  "sourceRoot": "apps/kickup-api/src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/kickup-api/tsconfig.app.json"
+  },
+  "monorepo": true,
+  "root": "apps/kickup-api",
+  "projects": {
+    "kickup-api": {
+      "type": "application",
+      "root": "apps/kickup-api",
+      "entryFile": "main",
+      "sourceRoot": "apps/kickup-api/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/kickup-api/tsconfig.app.json"
+      }
+    },
+    "kickup-batch": {
+      "type": "application",
+      "root": "apps/kickup-batch",
+      "entryFile": "main",
+      "sourceRoot": "apps/kickup-batch/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/kickup-batch/tsconfig.app.json"
+      }
+    }
   }
 }
