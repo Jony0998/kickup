@@ -8,6 +8,9 @@ export class AuthResponse {
 
 	@Field()
 	accessToken: string;
+
+	@Field({ nullable: true })
+	refreshToken?: string;
 }
 
 @InputType()

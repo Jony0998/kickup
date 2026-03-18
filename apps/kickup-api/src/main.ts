@@ -1,20 +1,34 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
-  // Enable CORS for frontend communication
+
+  // Use Socket.IO adapter so WebSocket gateways (e.g. chat) work with socket.io-client
+  app.useWebSocketAdapter(new IoAdapter(app));
+
+  // CORS: in production set CORS_ORIGIN (e.g. https://yoursite.com) to restrict origins
+  const corsOrigin = process.env.CORS_ORIGIN;
   app.enableCors({
-    origin: true,
+    origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : true,
     credentials: true,
   });
-  
+
   // Set global prefix for API routes (optional)
   // app.setGlobalPrefix('api');
-  
-  const port = process.env.PORT_API ?? 3000;
-  await app.listen(port);
+
+  app.use((req, res, next) => {
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    next();
+  });
+
+  // whitelist: true strips extra props; skip forbidNonWhitelisted so GraphQL inputs (e.g. chat sendMessage) don't get 400
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+
+  const port = process.env.PORT_API ?? 3008;
+  await app.listen(port, '0.0.0.0');
   console.log(`🚀 Server is running on: http://localhost:${port}`);
   console.log(`📊 GraphQL Playground: http://localhost:${port}/graphql`);
 }

@@ -1,11 +1,15 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { BookingService } from './booking.service';
 import { Booking, TimeSlot } from '../../schemas/Booking.graphql';
-import { BookingStatus } from '../../schemas/Booking.model';
+import { BookingStatus } from '../../libs/enums/booking.enum';
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../../auth/auth.guard';
+import { CurrentUser } from '../../auth/current-user.decorator';
+import { JwtPayload } from '../../auth/auth.service';
 
 @Resolver(() => Booking)
 export class BookingResolver {
-	constructor(private readonly bookingService: BookingService) {}
+	constructor(private readonly bookingService: BookingService) { }
 
 	@Query(() => [Booking], { name: 'bookings' })
 	async getBookingsByField(
@@ -16,13 +20,26 @@ export class BookingResolver {
 		return this.bookingService.getBookingsByField(fieldId, date, limit);
 	}
 
+	@UseGuards(AuthGuard)
 	@Query(() => [Booking], { name: 'myBookings' })
 	async getMyBookings(
-		@Args('bookerId', { type: () => ID }) bookerId: string,
-		@Args('status', { nullable: true }) status?: BookingStatus,
+		@CurrentUser() user: JwtPayload,
+		@Args('status', { nullable: true, type: () => BookingStatus })
+		status?: BookingStatus,
 		@Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
 	) {
-		return this.bookingService.getMyBookings(bookerId, status, limit);
+		return this.bookingService.getMyBookings(user.sub, status, limit);
+	}
+
+	@UseGuards(AuthGuard)
+	@Query(() => [Booking], { name: 'agentBookings' })
+	async getAgentBookings(
+		@CurrentUser() user: JwtPayload,
+		@Args('status', { nullable: true, type: () => BookingStatus })
+		status?: BookingStatus,
+		@Args('limit', { nullable: true, defaultValue: 50 }) limit?: number,
+	) {
+		return this.bookingService.getBookingsByOwner(user.sub, status, limit);
 	}
 
 	@Query(() => [TimeSlot], { name: 'fieldAvailability' })
@@ -48,10 +65,11 @@ export class BookingResolver {
 		);
 	}
 
+	@UseGuards(AuthGuard)
 	@Mutation(() => Booking)
 	async createBooking(
+		@CurrentUser() user: JwtPayload,
 		@Args('fieldId', { type: () => ID }) fieldId: string,
-		@Args('bookerId', { type: () => ID }) bookerId: string,
 		@Args('bookingDate') bookingDate: Date,
 		@Args('startTime') startTime: string,
 		@Args('endTime') endTime: string,
@@ -63,7 +81,7 @@ export class BookingResolver {
 	) {
 		return this.bookingService.createBooking({
 			fieldId,
-			bookerId,
+			bookerId: user.sub,
 			matchId,
 			bookingDate,
 			startTime,

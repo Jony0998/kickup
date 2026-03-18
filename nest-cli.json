@@ -4,11 +4,10 @@
   "sourceRoot": "apps/kickup-api/src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "webpack": true,
-    "tsConfigPath": "apps/kickup-api/tsconfig.app.json"
+    "webpack": false
   },
   "monorepo": true,
-  "root": "apps/kickup-api",
+  "root": ".",
   "projects": {
     "kickup-api": {
       "type": "application",

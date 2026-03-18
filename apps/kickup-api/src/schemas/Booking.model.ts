@@ -1,10 +1,29 @@
-import { Schema } from 'mongoose';
+import { Schema, Document } from 'mongoose';
 
 export enum BookingStatus {
 	PENDING = 'PENDING',
 	CONFIRMED = 'CONFIRMED',
 	CANCELLED = 'CANCELLED',
 	COMPLETED = 'COMPLETED',
+}
+
+export interface Booking extends Document {
+	fieldId: any;
+	bookerId: any;
+	matchId?: any;
+	bookingDate: Date;
+	startTime: string;
+	endTime: string;
+	duration: number;
+	totalAmount: number;
+	status: BookingStatus;
+	paymentStatus: string;
+	notes?: string;
+	cancelledAt?: Date;
+	cancellationReason?: string;
+	deletedAt?: Date;
+	createdAt: Date;
+	updatedAt: Date;
 }
 
 const BookingSchema = new Schema(

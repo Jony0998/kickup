@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Property, PropertyStatus } from '../../schemas/Property.model';
+import { Model, isValidObjectId } from 'mongoose';
+import { Property, PropertyStatus, PropertyType } from '../../schemas/Property.model';
 
 @Injectable()
 export class PropertyService {
 	constructor(
 		@InjectModel('Property') private readonly propertyModel: Model<Property>,
-	) {}
+	) { }
 
 	async createProperty(createPropertyDto: any): Promise<Property> {
 		const property = new this.propertyModel(createPropertyDto);
@@ -15,17 +15,27 @@ export class PropertyService {
 	}
 
 	async findAll(filters?: {
+		ownerId?: string;
 		city?: string;
 		district?: string;
 		status?: PropertyStatus;
+		type?: PropertyType;
 		isRecommended?: boolean;
 		limit?: number;
 		skip?: number;
 	}): Promise<Property[]> {
 		const query: any = { deletedAt: null };
 
+		if (filters?.type) {
+			query.propertyType = filters.type;
+		}
+
 		if (filters?.status) {
 			query.propertyStatus = filters.status;
+		}
+
+		if (filters?.ownerId) {
+			query.ownerId = filters.ownerId;
 		}
 
 		if (filters?.city) {
@@ -50,6 +60,9 @@ export class PropertyService {
 	}
 
 	async findOne(id: string): Promise<Property> {
+		if (!isValidObjectId(id)) {
+			throw new NotFoundException('Property not found (Invalid ID)');
+		}
 		const property = await this.propertyModel
 			.findById(id)
 			.populate('ownerId')
@@ -198,9 +211,9 @@ export class PropertyService {
 		const a =
 			Math.sin(dLat / 2) * Math.sin(dLat / 2) +
 			Math.cos(this.toRad(lat1)) *
-				Math.cos(this.toRad(lat2)) *
-				Math.sin(dLng / 2) *
-				Math.sin(dLng / 2);
+			Math.cos(this.toRad(lat2)) *
+			Math.sin(dLng / 2) *
+			Math.sin(dLng / 2);
 
 		const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 		const distance = R * c;

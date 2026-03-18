@@ -1,14 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import  { MatchStatus } from '../../schemas/Match.model';
-import { Match } from '../../schemas/Match.graphql';
+import { Model, isValidObjectId } from 'mongoose';
+import { Match, MatchStatus } from '../../schemas/Match.model';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class MatchService {
 	constructor(
 		@InjectModel('Match') private readonly matchModel: Model<Match>,
-	) {}
+		private readonly notificationService: NotificationService,
+	) { }
+
+	private async getPopulatedMatch(id: string): Promise<Match> {
+		if (!isValidObjectId(id)) return null;
+		return this.matchModel
+			.findById(id)
+			.populate('organizerId', 'memberNick memberFullName memberImage')
+			.populate('fieldId', 'propertyName location images rating')
+			.populate('joinedPlayers', 'memberNick memberFullName memberImage')
+			.populate('checkedInPlayers', 'memberNick memberFullName memberImage')
+			.exec();
+	}
 
 	async createMatch(createMatchDto: any): Promise<Match> {
 		// If fieldId is provided, populate location from field
@@ -23,10 +35,26 @@ export class MatchService {
 					coordinates: field.location.coordinates,
 				};
 			}
+		} else if (createMatchDto.address && !createMatchDto.location) {
+			createMatchDto.location = {
+				address: createMatchDto.address,
+			};
+		}
+
+		// Auto-add organizer as first participant
+		if (createMatchDto.organizerId) {
+			createMatchDto.joinedPlayers = [createMatchDto.organizerId];
+			createMatchDto.currentPlayers = 1;
+		}
+
+		// First image as matchImage for backward compatibility
+		if (createMatchDto.images?.length && !createMatchDto.matchImage) {
+			createMatchDto.matchImage = createMatchDto.images[0];
 		}
 
 		const match = new this.matchModel(createMatchDto);
-		return match.save();
+		await match.save();
+		return this.getPopulatedMatch(String(match._id));
 	}
 
 	async findAll(filters?: {
@@ -62,7 +90,7 @@ export class MatchService {
 		return this.matchModel
 			.find(query)
 			.populate('organizerId', 'memberNick memberFullName memberImage')
-			.populate('fieldId', 'propertyName location images')
+			.populate('fieldId', 'propertyName location images rating')
 			.sort({ matchDate: 1 })
 			.limit(filters?.limit || 20)
 			.skip(filters?.skip || 0)
@@ -70,11 +98,15 @@ export class MatchService {
 	}
 
 	async findOne(id: string): Promise<Match> {
+		if (!isValidObjectId(id)) {
+			throw new NotFoundException('Match not found (Invalid ID)');
+		}
 		const match = await this.matchModel
 			.findById(id)
 			.populate('organizerId')
 			.populate('fieldId')
 			.populate('joinedPlayers', 'memberNick memberFullName memberImage')
+			.populate('checkedInPlayers', 'memberNick memberFullName memberImage')
 			.exec();
 
 		if (!match || (match as any).deletedAt) {
@@ -89,17 +121,13 @@ export class MatchService {
 	}
 
 	async updateMatch(id: string, updateDto: any): Promise<Match> {
-		const match = await this.matchModel.findByIdAndUpdate(
+		await this.matchModel.findByIdAndUpdate(
 			id,
 			{ $set: updateDto },
 			{ new: true },
 		);
 
-		if (!match) {
-			throw new NotFoundException('Match not found');
-		}
-
-		return match;
+		return this.getPopulatedMatch(id);
 	}
 
 	async joinMatch(matchId: string, memberId: string): Promise<Match> {
@@ -129,7 +157,20 @@ export class MatchService {
 		match.joinedPlayers.push(memberId as any);
 		match.currentPlayers += 1;
 
-		return match.save();
+		await match.save();
+
+		// Trigger notification for organizer
+		try {
+			await this.notificationService.notifyMatchJoined(
+				match.organizerId.toString(),
+				matchId,
+				memberId,
+			);
+		} catch (error) {
+			console.error('Failed to send join notification:', error);
+		}
+
+		return this.getPopulatedMatch(matchId);
 	}
 
 	async leaveMatch(matchId: string, memberId: string): Promise<Match> {
@@ -144,7 +185,28 @@ export class MatchService {
 		);
 		match.currentPlayers = Math.max(0, match.currentPlayers - 1);
 
-		return match.save();
+		await match.save();
+
+		// Trigger notification for organizer
+		try {
+			const memberModel = this.matchModel.db.model('Member');
+			const leaver = await memberModel.findById(memberId);
+			if (leaver && match.organizerId.toString() !== memberId) {
+				await this.notificationService.createNotification({
+					userId: match.organizerId.toString(),
+					notificationType: 'MATCH_JOINED' as any,
+					title: 'O\'yinchi tark etdi',
+					message: `${leaver.memberNick} "${match.matchTitle}" matchini tark etdi`,
+					relatedMatchId: matchId,
+					relatedMemberId: memberId,
+					actionUrl: `/match/${matchId}`,
+				});
+			}
+		} catch (error) {
+			console.error('Failed to send leave notification:', error);
+		}
+
+		return this.getPopulatedMatch(matchId);
 	}
 
 	async likeMatch(matchId: string, memberId: string): Promise<Match> {
@@ -166,7 +228,8 @@ export class MatchService {
 			match.likes += 1;
 		}
 
-		return match.save();
+		await match.save();
+		return this.getPopulatedMatch(matchId);
 	}
 
 	async deleteMatch(id: string): Promise<boolean> {
@@ -193,7 +256,7 @@ export class MatchService {
 				deletedAt: null,
 			})
 			.populate('organizerId', 'memberNick memberFullName memberImage')
-			.populate('fieldId', 'propertyName location images')
+			.populate('fieldId', 'propertyName location images rating')
 			.sort({ matchDate: 1 })
 			.limit(limit)
 			.exec();
@@ -206,7 +269,7 @@ export class MatchService {
 				deletedAt: null,
 			})
 			.populate('organizerId', 'memberNick memberFullName memberImage')
-			.populate('fieldId', 'propertyName location images')
+			.populate('fieldId', 'propertyName location images rating')
 			.sort({ matchDate: 1 })
 			.exec();
 	}
@@ -261,7 +324,7 @@ export class MatchService {
 		return this.matchModel
 			.find(query)
 			.populate('organizerId', 'memberNick memberFullName memberImage')
-			.populate('fieldId', 'propertyName location images')
+			.populate('fieldId', 'propertyName location images rating')
 			.sort({ matchDate: 1 })
 			.limit(filters.limit || 20)
 			.skip(filters.skip || 0)
@@ -282,7 +345,7 @@ export class MatchService {
 			throw new NotFoundException('Match not found');
 		}
 
-		return match;
+		return this.getPopulatedMatch(matchId);
 	}
 
 	async cancelMatch(matchId: string, organizerId: string): Promise<Match> {
@@ -297,7 +360,47 @@ export class MatchService {
 		}
 
 		match.matchStatus = MatchStatus.CANCELLED;
-		return match.save();
+		await match.save();
+
+		// Notify all joined players
+		try {
+			const playerIds = match.joinedPlayers.filter(id => id.toString() !== organizerId);
+			await Promise.all(
+				playerIds.map(playerId =>
+					this.notificationService.notifyMatchCancelled(playerId.toString(), matchId)
+				)
+			);
+		} catch (error) {
+			console.error('Failed to send cancel notifications:', error);
+		}
+
+		return this.getPopulatedMatch(matchId);
+	}
+
+	async checkIn(matchId: string, memberId: string): Promise<Match> {
+		const match = await this.matchModel.findById(matchId);
+
+		if (!match) {
+			throw new NotFoundException('Match not found');
+		}
+
+		if (!match.joinedPlayers.some((id) => id.toString() === memberId)) {
+			throw new Error('Member is not in the joined players list');
+		}
+
+		// Initialize checkedInPlayers if it doesn't exist
+		if (!match.checkedInPlayers) {
+			match.checkedInPlayers = [];
+		}
+
+		if (match.checkedInPlayers.some((id) => id.toString() === memberId)) {
+			// Already checked in, just return match
+			return this.getPopulatedMatch(matchId);
+		}
+
+		match.checkedInPlayers.push(memberId as any);
+		await match.save();
+		return this.getPopulatedMatch(matchId);
 	}
 }
 

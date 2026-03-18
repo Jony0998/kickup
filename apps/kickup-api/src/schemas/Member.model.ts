@@ -1,6 +1,33 @@
-import { Schema } from 'mongoose';
-import { MemberAuthType, MemberStatus, MemberType } from '../libs/enums/member.enum';
-  
+import { Schema, Document } from 'mongoose';
+import { MemberAuthType, MemberStatus, MemberType, SkillLevel } from '../libs/enums/member.enum';
+
+export interface Member extends Document {
+	memberType: string;
+	memberStatus: string;
+	memberAuthType: string;
+	memberSkillLevel: string;
+	memberPhone: string;
+	memberNick: string;
+	memberPassword?: string;
+	memberFullName?: string;
+	memberImage?: string;
+	memberAddress?: string;
+	memberDesc?: string;
+	memberProperties: number;
+	memberArticles: number;
+	memberFollowers: number;
+	memberFollowings: number;
+	memberPoints: number;
+	memberLikes: number;
+	memberViews: number;
+	memberComments: number;
+	memberRank: number;
+	memberWarnings: number;
+	memberBlocks: number;
+	deletedAt?: Date;
+	createdAt: Date;
+	updatedAt: Date;
+}
 
 const MemberSchema = new Schema(
 	{
@@ -22,6 +49,12 @@ const MemberSchema = new Schema(
 			default: MemberAuthType.PHONE,
 		},
 
+		memberSkillLevel: {
+			type: String,
+			enum: SkillLevel,
+			default: SkillLevel.ROOKIE,
+		},
+
 		memberPhone: {
 			type: String,
 			index: { unique: true, sparse: true },
@@ -37,10 +70,7 @@ const MemberSchema = new Schema(
 		memberPassword: {
 			type: String,
 			select: false,
-			required: function() {
-				// Password is required only if auth type is not TELEGRAM
-				return this.memberAuthType !== 'TELEGRAM';
-			},
+			required: false, // We'll validate in service layer
 		},
 
 		memberFullName: {

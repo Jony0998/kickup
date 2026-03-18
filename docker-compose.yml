@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  kickup-api:
+    container_name: kickup-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "4002:3008"
+    environment:
+      - PORT_API=4002
+      - NODE_ENV=development
+    volumes:
+      - kickup_uploads:/app/uploads
+    networks:
+      - monorepo-network
+
+  kickup-batch:
+    container_name: kickup-batch
+    image: node:20-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    working_dir: /app
+    command: sh -c "npm ci && npx nest build kickup-batch && node dist/apps/kickup-batch/main.js"
+    ports:
+      - "4001:3007"
+    environment:
+      - PORT_BATCH=3007
+      - NODE_ENV=development
+    volumes:
+      - ./:/app
+    networks:
+      - monorepo-network
+
+networks:
+  monorepo-network:
+    driver: bridge
+
+volumes:
+  kickup_uploads:

@@ -1,15 +1,20 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import { UseGuards, UnauthorizedException } from '@nestjs/common';
 import { MatchService } from './match.service';
-import { Match } from '../../schemas/Match.graphql';
-import { MatchStatus, MatchType } from '../../schemas/Match.model';
+import { Match, CreateMatchInput } from '../../schemas/Match.graphql';
+import { MatchStatus, MatchType } from '../../libs/enums/match.enum';
+import { AuthGuard } from '../../auth/auth.guard';
+import { CurrentUser } from '../../auth/current-user.decorator';
+import { JwtPayload } from '../../auth/auth.service';
 
 @Resolver(() => Match)
 export class MatchResolver {
-	constructor(private readonly matchService: MatchService) {}
+	constructor(private readonly matchService: MatchService) { }
 
 	@Query(() => [Match], { name: 'matches' })
 	async findAll(
-		@Args('status', { nullable: true }) status?: MatchStatus,
+		@Args('status', { nullable: true, type: () => MatchStatus })
+		status?: MatchStatus,
 		@Args('city', { nullable: true }) city?: string,
 		@Args('district', { nullable: true }) district?: string,
 		@Args('date', { nullable: true }) date?: Date,
@@ -38,14 +43,16 @@ export class MatchResolver {
 		return this.matchService.getUpcomingMatches(limit);
 	}
 
+	@UseGuards(AuthGuard)
 	@Query(() => [Match], { name: 'myMatches' })
-	async getMyMatches(@Args('organizerId', { type: () => ID }) organizerId: string) {
-		return this.matchService.getMatchesByOrganizer(organizerId);
+	async getMyMatches(@CurrentUser() user: JwtPayload) {
+		return this.matchService.getMatchesByOrganizer(user.sub);
 	}
 
+	@UseGuards(AuthGuard)
 	@Query(() => [Match], { name: 'myJoinedMatches' })
-	async getMyJoinedMatches(@Args('memberId', { type: () => ID }) memberId: string) {
-		return this.matchService.getMyJoinedMatches(memberId);
+	async getMyJoinedMatches(@CurrentUser() user: JwtPayload) {
+		return this.matchService.getMyJoinedMatches(user.sub);
 	}
 
 	@Query(() => [Match], { name: 'searchMatches' })
@@ -73,74 +80,101 @@ export class MatchResolver {
 		});
 	}
 
+	@UseGuards(AuthGuard)
 	@Mutation(() => Match)
 	async createMatch(
-		@Args('matchTitle') matchTitle: string,
-		@Args('fieldId', { type: () => ID }) fieldId: string,
-		@Args('organizerId', { type: () => ID }) organizerId: string,
-		@Args('matchDate') matchDate: Date,
-		@Args('matchTime') matchTime: string,
-		@Args('maxPlayers', { nullable: true, defaultValue: 22 }) maxPlayers?: number,
-		@Args('matchType', { nullable: true }) matchType?: MatchType,
-		@Args('matchDescription', { nullable: true }) matchDescription?: string,
-		@Args('matchFee', { nullable: true, defaultValue: 0 }) matchFee?: number,
+		@CurrentUser() user: JwtPayload,
+		@Args('input') input: CreateMatchInput,
 	) {
+		// Only ADMIN and AGENT can create matches
+		if (user.memberType === 'USER') {
+			throw new UnauthorizedException('Only stadium owners and admins can create matches');
+		}
+
 		return this.matchService.createMatch({
-			matchTitle,
-			fieldId,
-			organizerId,
-			matchDate,
-			matchTime,
-			maxPlayers,
-			matchType,
-			matchDescription,
-			matchFee,
+			...input,
+			organizerId: user.sub,
 		});
 	}
 
+	@UseGuards(AuthGuard)
 	@Mutation(() => Match)
 	async joinMatch(
+		@CurrentUser() user: JwtPayload,
 		@Args('matchId', { type: () => ID }) matchId: string,
-		@Args('memberId', { type: () => ID }) memberId: string,
 	) {
-		return this.matchService.joinMatch(matchId, memberId);
+		return this.matchService.joinMatch(matchId, user.sub);
 	}
 
+	@UseGuards(AuthGuard)
 	@Mutation(() => Match)
 	async leaveMatch(
+		@CurrentUser() user: JwtPayload,
 		@Args('matchId', { type: () => ID }) matchId: string,
-		@Args('memberId', { type: () => ID }) memberId: string,
 	) {
-		return this.matchService.leaveMatch(matchId, memberId);
+		return this.matchService.leaveMatch(matchId, user.sub);
 	}
 
+	@UseGuards(AuthGuard)
 	@Mutation(() => Match)
 	async likeMatch(
+		@CurrentUser() user: JwtPayload,
 		@Args('matchId', { type: () => ID }) matchId: string,
-		@Args('memberId', { type: () => ID }) memberId: string,
 	) {
-		return this.matchService.likeMatch(matchId, memberId);
+		return this.matchService.likeMatch(matchId, user.sub);
 	}
 
+	@UseGuards(AuthGuard)
 	@Mutation(() => Boolean)
-	async deleteMatch(@Args('id', { type: () => ID }) id: string) {
+	async deleteMatch(
+		@CurrentUser() user: JwtPayload,
+		@Args('id', { type: () => ID }) id: string,
+	) {
+		// Check if user is organizer
+		const match = await this.matchService.findOne(id);
+		if (match.organizerId.toString() !== user.sub) {
+			throw new Error('Only organizer can delete the match');
+		}
 		return this.matchService.deleteMatch(id);
 	}
 
+	@UseGuards(AuthGuard)
 	@Mutation(() => Match)
 	async updateMatchStatus(
+		@CurrentUser() user: JwtPayload,
 		@Args('matchId', { type: () => ID }) matchId: string,
-		@Args('status') status: MatchStatus,
+		@Args('status', { type: () => MatchStatus }) status: MatchStatus,
 	) {
+		// Check if user is organizer
+		const match = await this.matchService.findOne(matchId);
+		if (match.organizerId.toString() !== user.sub) {
+			throw new Error('Only organizer can update match status');
+		}
 		return this.matchService.updateMatchStatus(matchId, status);
 	}
 
+	@UseGuards(AuthGuard)
 	@Mutation(() => Match)
 	async cancelMatch(
+		@CurrentUser() user: JwtPayload,
 		@Args('matchId', { type: () => ID }) matchId: string,
-		@Args('organizerId', { type: () => ID }) organizerId: string,
 	) {
-		return this.matchService.cancelMatch(matchId, organizerId);
+		return this.matchService.cancelMatch(matchId, user.sub);
+	}
+
+	@UseGuards(AuthGuard)
+	@Mutation(() => Match)
+	async checkIn(
+		@CurrentUser() user: JwtPayload,
+		@Args('matchId', { type: () => ID }) matchId: string,
+		@Args('memberId', { type: () => ID }) memberId: string,
+	) {
+		// Check if user is organizer
+		const match = await this.matchService.findOne(matchId);
+		if (match.organizerId.toString() !== user.sub) {
+			throw new Error('Only organizer can check in players');
+		}
+		return this.matchService.checkIn(matchId, memberId);
 	}
 }
 

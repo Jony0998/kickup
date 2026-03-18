@@ -1,7 +1,7 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { ReviewService } from './review.service';
 import { Review, RatingSummary } from '../../schemas/Review.graphql';
-import { ReviewType } from '../../schemas/Review.model';
+import { ReviewType } from '../../libs/enums/review.enum';
 
 @Resolver(() => Review)
 export class ReviewResolver {
@@ -9,7 +9,7 @@ export class ReviewResolver {
 
 	@Query(() => [Review], { name: 'reviews' })
 	async getReviewsByTarget(
-		@Args('reviewType') reviewType: ReviewType,
+		@Args('reviewType', { type: () => ReviewType }) reviewType: ReviewType,
 		@Args('targetId', { type: () => ID }) targetId: string,
 		@Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
 		@Args('skip', { nullable: true, defaultValue: 0 }) skip?: number,
@@ -24,7 +24,7 @@ export class ReviewResolver {
 
 	@Query(() => Review, { name: 'myReview', nullable: true })
 	async getReviewByUser(
-		@Args('reviewType') reviewType: ReviewType,
+		@Args('reviewType', { type: () => ReviewType }) reviewType: ReviewType,
 		@Args('targetId', { type: () => ID }) targetId: string,
 		@Args('reviewerId', { type: () => ID }) reviewerId: string,
 	) {
@@ -33,7 +33,7 @@ export class ReviewResolver {
 
 	@Query(() => RatingSummary, { name: 'ratingSummary' })
 	async getAverageRating(
-		@Args('reviewType') reviewType: ReviewType,
+		@Args('reviewType', { type: () => ReviewType }) reviewType: ReviewType,
 		@Args('targetId', { type: () => ID }) targetId: string,
 	) {
 		return this.reviewService.getAverageRating(reviewType, targetId);
@@ -41,7 +41,7 @@ export class ReviewResolver {
 
 	@Mutation(() => Review)
 	async createReview(
-		@Args('reviewType') reviewType: ReviewType,
+		@Args('reviewType', { type: () => ReviewType }) reviewType: ReviewType,
 		@Args('targetId', { type: () => ID }) targetId: string,
 		@Args('reviewerId', { type: () => ID }) reviewerId: string,
 		@Args('rating', { type: () => Number }) rating: number,

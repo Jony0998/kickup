@@ -1,9 +1,24 @@
-import { Schema } from 'mongoose';
+import { Schema, Document } from 'mongoose';
 
 export enum ReviewType {
 	FIELD = 'FIELD',
 	MATCH = 'MATCH',
 	MEMBER = 'MEMBER',
+}
+
+export interface Review extends Document {
+	reviewType: ReviewType;
+	targetId: any;
+	reviewTypeRef: string;
+	reviewerId: any;
+	rating: number;
+	comment?: string;
+	images?: string[];
+	likes: number;
+	likedBy: any[];
+	deletedAt?: Date;
+	createdAt: Date;
+	updatedAt: Date;
 }
 
 const ReviewSchema = new Schema(

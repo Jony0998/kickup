@@ -12,7 +12,7 @@ import { Booking, BookingStatus } from '../../schemas/Booking.model';
 export class BookingService {
 	constructor(
 		@InjectModel('Booking') private readonly bookingModel: Model<Booking>,
-	) {}
+	) { }
 
 	async createBooking(createBookingDto: {
 		fieldId: string;
@@ -174,6 +174,34 @@ export class BookingService {
 			.populate('bookerId', 'memberNick memberFullName memberImage')
 			.populate('matchId', 'matchTitle matchDate')
 			.sort({ bookingDate: 1, startTime: 1 })
+			.limit(limit)
+			.exec();
+	}
+
+	async getBookingsByOwner(
+		ownerId: string,
+		status?: BookingStatus,
+		limit: number = 50,
+	): Promise<Booking[]> {
+		const Property = this.bookingModel.db.model('Property');
+		const fields = await Property.find({ ownerId, deletedAt: null }).select('_id');
+		const fieldIds = fields.map((f) => f._id);
+
+		const query: any = {
+			fieldId: { $in: fieldIds },
+			deletedAt: null,
+		};
+
+		if (status) {
+			query.status = status;
+		}
+
+		return this.bookingModel
+			.find(query)
+			.populate('fieldId', 'propertyName location images')
+			.populate('bookerId', 'memberNick memberFullName memberImage')
+			.populate('matchId', 'matchTitle matchDate')
+			.sort({ bookingDate: -1, startTime: -1 })
 			.limit(limit)
 			.exec();
 	}

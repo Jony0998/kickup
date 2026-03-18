@@ -23,8 +23,21 @@ export enum MemberAuthType {
 	PHONE = 'PHONE',
 	EMAIL = 'EMAIL',
 	TELEGRAM = 'TELEGRAM',
+	GOOGLE = 'GOOGLE',
 }
 
 registerEnumType(MemberAuthType, {
 	name: 'MemberAuthType',
+});
+
+export enum SkillLevel {
+	ROOKIE = 'ROOKIE',
+	AMATEUR = 'AMATEUR',
+	SEMI_PRO = 'SEMI_PRO',
+	PRO = 'PRO',
+	ELITE = 'ELITE',
+}
+
+registerEnumType(SkillLevel, {
+	name: 'SkillLevel',
 });

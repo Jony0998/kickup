@@ -1,4 +1,4 @@
-import { Schema } from 'mongoose';
+import { Schema, Document } from 'mongoose';
 
 export enum MatchStatus {
 	UPCOMING = 'UPCOMING',
@@ -11,6 +11,41 @@ export enum MatchType {
 	FRIENDLY = 'FRIENDLY',
 	TOURNAMENT = 'TOURNAMENT',
 	LEAGUE = 'LEAGUE',
+}
+
+export interface Match extends Document {
+	matchTitle: string;
+	matchDescription?: string;
+	matchType: MatchType;
+	matchStatus: MatchStatus;
+	fieldId: any;
+	organizerId: any;
+	matchDate: Date;
+	matchTime: string;
+	duration?: number;
+	maxPlayers: number;
+	currentPlayers: number;
+	joinedPlayers: any[];
+	checkedInPlayers: any[];
+	matchFee?: number;
+	skillLevel?: string;
+	location?: {
+		address?: string;
+		city?: string;
+		district?: string;
+		coordinates?: {
+			lat?: number;
+			lng?: number;
+		};
+	};
+	matchImage?: string;
+	images?: string[];
+	views: number;
+	likes: number;
+	likedBy: any[];
+	deletedAt?: Date;
+	createdAt: Date;
+	updatedAt: Date;
 }
 
 const MatchSchema = new Schema(
@@ -35,7 +70,7 @@ const MatchSchema = new Schema(
 		fieldId: {
 			type: Schema.Types.ObjectId,
 			ref: 'Property',
-			required: true,
+			required: false,
 		},
 		organizerId: {
 			type: Schema.Types.ObjectId,
@@ -69,6 +104,12 @@ const MatchSchema = new Schema(
 				ref: 'Member',
 			},
 		],
+		checkedInPlayers: [
+			{
+				type: Schema.Types.ObjectId,
+				ref: 'Member',
+			},
+		],
 		matchFee: {
 			type: Number,
 			default: 0,
@@ -88,6 +129,10 @@ const MatchSchema = new Schema(
 		matchImage: {
 			type: String,
 			default: '',
+		},
+		images: {
+			type: [String],
+			default: undefined,
 		},
 		views: {
 			type: Number,

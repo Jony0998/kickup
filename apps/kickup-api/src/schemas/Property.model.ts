@@ -1,4 +1,4 @@
-import { Schema } from 'mongoose';
+import { Schema, Document } from 'mongoose';
 
 export enum PropertyStatus {
 	ACTIVE = 'ACTIVE',
@@ -11,6 +11,45 @@ export enum PropertyType {
 	OUTDOOR = 'OUTDOOR',
 	FUTSAL = 'FUTSAL',
 	FULL_SIZE = 'FULL_SIZE',
+}
+
+export interface Property extends Document {
+	propertyName: string;
+	propertyDescription?: string;
+	propertyType: PropertyType;
+	propertyStatus: PropertyStatus;
+	ownerId?: any;
+	location: {
+		address: string;
+		city: string;
+		district?: string;
+		coordinates?: {
+			lat?: number;
+			lng?: number;
+		};
+	};
+	contactInfo?: {
+		phone?: string;
+		email?: string;
+	};
+	amenities?: string[];
+	fieldSize?: {
+		width?: number;
+		length?: number;
+	};
+	capacity?: number;
+	hourlyRate?: number;
+	images?: string[];
+	rating?: {
+		average: number;
+		count: number;
+	};
+	views: number;
+	bookings: number;
+	isRecommended: boolean;
+	deletedAt?: Date;
+	createdAt: Date;
+	updatedAt: Date;
 }
 
 const PropertySchema = new Schema(

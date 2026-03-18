@@ -1,25 +1,35 @@
 import { Resolver, Query, Mutation, Args, ID, InputType } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
 import { PropertyService } from './property.service';
 import { Property, PropertyLocation } from '../../schemas/Property.graphql';
-import { PropertyStatus, PropertyType } from '../../schemas/Property.model';
+import { PropertyStatus, PropertyType } from '../../libs/enums/property.enum';
+import { AuthGuard } from '../../auth/auth.guard';
+import { CurrentUser } from '../../auth/current-user.decorator';
+import { JwtPayload } from '../../auth/auth.service';
 
 @Resolver(() => Property)
 export class PropertyResolver {
-	constructor(private readonly propertyService: PropertyService) {}
+	constructor(private readonly propertyService: PropertyService) { }
 
 	@Query(() => [Property], { name: 'properties' })
 	async findAll(
+		@Args('ownerId', { nullable: true, type: () => ID }) ownerId?: string,
 		@Args('city', { nullable: true }) city?: string,
 		@Args('district', { nullable: true }) district?: string,
-		@Args('status', { nullable: true }) status?: PropertyStatus,
+		@Args('status', { nullable: true, type: () => PropertyStatus })
+		status?: PropertyStatus,
+		@Args('type', { nullable: true, type: () => PropertyType })
+		type?: PropertyType,
 		@Args('isRecommended', { nullable: true }) isRecommended?: boolean,
 		@Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
 		@Args('skip', { nullable: true, defaultValue: 0 }) skip?: number,
 	) {
 		return this.propertyService.findAll({
+			ownerId,
 			city,
 			district,
 			status,
+			type,
 			isRecommended,
 			limit,
 			skip,
@@ -47,31 +57,37 @@ export class PropertyResolver {
 		return this.propertyService.searchByLocation(city, district, limit);
 	}
 
+	@UseGuards(AuthGuard)
 	@Mutation(() => Property)
 	async createProperty(
+		@CurrentUser() user: JwtPayload,
 		@Args('propertyName') propertyName: string,
-		@Args('location') location: any,
-		@Args('propertyType', { nullable: true }) propertyType?: PropertyType,
+		@Args('location', { type: () => String }) location: string,
+		@Args('propertyType', { nullable: true, type: () => PropertyType })
+		propertyType?: PropertyType,
 		@Args('propertyDescription', { nullable: true })
 		propertyDescription?: string,
 		@Args('hourlyRate', { nullable: true, defaultValue: 0 })
 		hourlyRate?: number,
 	) {
+		const parsedLocation = location ? JSON.parse(location) : undefined;
 		return this.propertyService.createProperty({
 			propertyName,
-			location,
+			location: parsedLocation,
 			propertyType,
 			propertyDescription,
 			hourlyRate,
+			ownerId: user.sub,
 		});
 	}
 
 	@Mutation(() => Property)
 	async updateProperty(
 		@Args('id', { type: () => ID }) id: string,
-		@Args('updateData') updateData: any,
+		@Args('updateData', { type: () => String }) updateData: string,
 	) {
-		return this.propertyService.updateProperty(id, updateData);
+		const parsed = updateData ? JSON.parse(updateData) : {};
+		return this.propertyService.updateProperty(id, parsed);
 	}
 
 	@Mutation(() => Boolean)

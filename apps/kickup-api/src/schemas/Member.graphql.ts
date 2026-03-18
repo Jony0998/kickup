@@ -1,5 +1,6 @@
-import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
-import { MemberType, MemberStatus, MemberAuthType } from '../libs/enums/member.enum';
+import { ObjectType, Field, ID, Int, InputType } from '@nestjs/graphql';
+import { IsString, Length, IsOptional, IsEnum } from 'class-validator';
+import { MemberType, MemberStatus, MemberAuthType, SkillLevel } from '../libs/enums/member.enum';
 
 @ObjectType()
 export class Member {
@@ -15,11 +16,14 @@ export class Member {
 	@Field(() => MemberAuthType)
 	memberAuthType: MemberAuthType;
 
-	@Field()
-	memberPhone: string;
+	@Field(() => SkillLevel, { nullable: true })
+	memberSkillLevel?: SkillLevel;
 
-	@Field()
-	memberNick: string;
+	@Field({ nullable: true })
+	memberPhone?: string;
+
+	@Field({ nullable: true })
+	memberNick?: string;
 
 	@Field({ nullable: true })
 	memberFullName?: string;
@@ -71,5 +75,62 @@ export class Member {
 
 	@Field()
 	updatedAt: Date;
+}
+
+@InputType()
+export class LoginInput {
+	@Field()
+	@IsString()
+	memberPassword: string;
+
+	@Field({ nullable: true })
+	@IsOptional()
+	@IsString()
+	memberPhone?: string;
+
+	@Field({ nullable: true })
+	@IsOptional()
+	@IsString()
+	memberNick?: string;
+}
+
+@InputType()
+export class RegisterInput {
+	@Field()
+	@IsString()
+	memberPhone: string;
+
+	@Field()
+	@IsString()
+	memberNick: string;
+
+	@Field()
+	@IsString()
+	@Length(6, 100)
+	memberPassword: string;
+
+	@Field({ nullable: true })
+	@IsString()
+	@IsOptional()
+	memberFullName?: string;
+
+	@Field(() => MemberAuthType, { nullable: true })
+	@IsEnum(MemberAuthType)
+	@IsOptional()
+	memberAuthType?: MemberAuthType;
+
+	@Field(() => MemberType, { nullable: true })
+	@IsEnum(MemberType)
+	@IsOptional()
+	memberType?: MemberType;
+
+	@Field({ nullable: true, defaultValue: false })
+	@IsOptional()
+	isAdmin?: boolean;
+
+	@Field({ nullable: true })
+	@IsString()
+	@IsOptional()
+	adminSecretKey?: string;
 }
 

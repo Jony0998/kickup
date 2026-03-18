@@ -1,6 +1,15 @@
 import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 import { PropertyStatus, PropertyType } from './Property.model';
 
+@ObjectType('PropertyCoordinates')
+export class Coordinates {
+	@Field(() => Float, { nullable: true })
+	lat?: number;
+
+	@Field(() => Float, { nullable: true })
+	lng?: number;
+}
+
 @ObjectType()
 export class PropertyLocation {
 	@Field()
@@ -17,16 +26,7 @@ export class PropertyLocation {
 }
 
 @ObjectType()
-export class Coordinates {
-	@Field(() => Float, { nullable: true })
-	lat?: number;
-
-	@Field(() => Float, { nullable: true })
-	lng?: number;
-}
-
-@ObjectType()
-export class ContactInfo {
+export class PropertyContactInfo {
 	@Field({ nullable: true })
 	phone?: string;
 
@@ -75,8 +75,8 @@ export class Property {
 	@Field(() => PropertyLocation)
 	location: PropertyLocation;
 
-	@Field(() => ContactInfo, { nullable: true })
-	contactInfo?: ContactInfo;
+	@Field(() => PropertyContactInfo, { nullable: true })
+	contactInfo?: PropertyContactInfo;
 
 	@Field(() => [String], { nullable: true })
 	amenities?: string[];

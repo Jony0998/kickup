@@ -3,57 +3,152 @@ import {
 	NotFoundException,
 	ConflictException,
 	UnauthorizedException,
+	BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { Member } from '../../schemas/Member.model';
-import { MemberStatus, MemberAuthType } from '../../libs/enums/member.enum';
+import { MemberStatus, MemberAuthType, MemberType } from '../../libs/enums/member.enum';
 import { Message } from '../../libs/enums/common.enum';
+import { LoginInput, RegisterInput } from '../../schemas/Member.graphql';
 import { TelegramAuthService } from '../../auth/telegram-auth.service';
 import { TelegramAuthData } from '../../auth/telegram-auth.service';
+import { GoogleAuthService } from '../../auth/google-auth.service';
 
 @Injectable()
 export class MemberService {
 	constructor(
 		@InjectModel('Member') private readonly memberModel: Model<Member>,
 		private readonly telegramAuthService: TelegramAuthService,
-	) {}
+		private readonly googleAuthService: GoogleAuthService,
+	) { }
 
-	async register(registerDto: {
-		memberPhone: string;
-		memberNick: string;
-		memberPassword: string;
-		memberFullName?: string;
-		memberAuthType?: MemberAuthType;
-	}): Promise<Member> {
-		// Check if phone or nick already exists
-		const existingMember = await this.memberModel.findOne({
-			$or: [
-				{ memberPhone: registerDto.memberPhone },
-				{ memberNick: registerDto.memberNick },
-			],
+	async register(registerDto: RegisterInput): Promise<Member> {
+		try {
+			// Validate required fields
+			if (!registerDto.memberPhone || !registerDto.memberNick) {
+				throw new BadRequestException('Phone and Nick are required');
+			}
+
+			const authType = registerDto.memberAuthType || MemberAuthType.PHONE;
+
+			// Validate password for non-TELEGRAM auth
+			if (authType !== MemberAuthType.TELEGRAM && !registerDto.memberPassword) {
+				throw new BadRequestException('Password is required for non-TELEGRAM authentication');
+			}
+
+			// Check if phone or nick already exists
+			const existingMember = await this.memberModel.findOne({
+				$or: [
+					{ memberPhone: registerDto.memberPhone },
+					{ memberNick: registerDto.memberNick },
+				],
+				deletedAt: null,
+			});
+
+			if (existingMember) {
+				throw new ConflictException(Message.USED_MEMBER_NICK_OR_PHONE);
+			}
+
+			// ROLE ASSIGNMENT: Default to USER, allow AGENT selection, protect ADMIN
+			let memberType = registerDto.memberType || MemberType.USER;
+
+			// Super Admin Security check (overrides requested role)
+			if (registerDto.isAdmin && registerDto.adminSecretKey) {
+				// Secret key tekshirish
+				const validSecretKey = process.env.ADMIN_SECRET_KEY || 'CHANGE_THIS_IN_PRODUCTION';
+				if (registerDto.adminSecretKey !== validSecretKey) {
+					throw new UnauthorizedException('Invalid admin secret key');
+				}
+
+				// Agar allaqachon admin bor bo'lsa, yangi admin yaratishni rad etish
+				const existingAdmin = await this.memberModel.findOne({
+					memberType: MemberType.ADMIN,
+					deletedAt: null,
+				});
+
+				if (existingAdmin) {
+					throw new ConflictException('Admin already exists. Cannot create another admin. Please register as regular user.');
+				}
+
+				// Admin yaratishga ruxsat beriladi
+				memberType = MemberType.ADMIN;
+			} else if (memberType === MemberType.ADMIN) {
+				// Prevent users from manually selecting ADMIN without secret key
+				memberType = MemberType.USER;
+			}
+
+			// Hash password if provided
+			let hashedPassword: string | undefined;
+			if (registerDto.memberPassword) {
+				hashedPassword = await bcrypt.hash(registerDto.memberPassword, 10);
+			}
+
+			// Create member document
+			const memberData: any = {
+				memberPhone: registerDto.memberPhone.trim(),
+				memberNick: registerDto.memberNick.trim(),
+				memberAuthType: authType,
+				memberType: memberType,
+				memberStatus: MemberStatus.ACTIVE,
+			};
+
+			// Add password if provided
+			if (hashedPassword) {
+				memberData.memberPassword = hashedPassword;
+			}
+
+			// Add optional fields
+			if (registerDto.memberFullName) {
+				memberData.memberFullName = registerDto.memberFullName.trim();
+			}
+
+			console.log('Creating member with data:', {
+				memberPhone: memberData.memberPhone,
+				memberNick: memberData.memberNick,
+				memberType: memberData.memberType,
+				hasPassword: !!memberData.memberPassword
+			});
+
+			const member = new this.memberModel(memberData);
+
+			console.log('Attempting to save member to DB...');
+			console.log('Model Name: ', this.memberModel.modelName);
+			console.log('DB Name: ', this.memberModel.db.name);
+			console.log('Member Instance: ', member);
+
+			const savedMember = await member.save();
+			console.log('Save result:', savedMember);
+
+			console.log('Member saved successfully to database:', {
+				_id: savedMember._id,
+				memberNick: savedMember.memberNick,
+				memberPhone: savedMember.memberPhone,
+			});
+
+			return savedMember;
+		} catch (error) {
+			console.error('Error in register service:', {
+				message: error.message,
+				stack: error.stack,
+				name: error.name,
+			});
+			throw error;
+		}
+	}
+
+	/** Public: returns true if at least one admin exists (for signup page to hide admin option). */
+	async hasAdmin(): Promise<boolean> {
+		const count = await this.memberModel.countDocuments({
+			memberType: MemberType.ADMIN,
 			deletedAt: null,
 		});
-
-		if (existingMember) {
-			throw new ConflictException(Message.USED_MEMBER_NICK_OR_PHONE);
-		}
-
-		// Hash password
-		const hashedPassword = await bcrypt.hash(registerDto.memberPassword, 10);
-
-		const member = new this.memberModel({
-			...registerDto,
-			memberPassword: hashedPassword,
-			memberAuthType: registerDto.memberAuthType || MemberAuthType.PHONE,
-		});
-
-		return member.save();
+		return count > 0;
 	}
 
 	async login(
-		loginDto: { memberPhone?: string; memberNick?: string; memberPassword: string },
+		loginDto: LoginInput,
 	): Promise<Member> {
 		const member = await this.memberModel
 			.findOne({
@@ -82,9 +177,9 @@ export class MemberService {
 			throw new UnauthorizedException(Message.WRONG_PASSWORD);
 		}
 
-		// Remove password from response
-		member.memberPassword = undefined;
-		return member;
+		// Return full member by id so memberImage and all fields are included (fixes image lost after logout/login)
+		const fullMember = await this.memberModel.findById(member._id).exec();
+		return fullMember ?? member;
 	}
 
 	async findOne(id: string): Promise<Member> {
@@ -121,17 +216,52 @@ export class MemberService {
 		return member;
 	}
 
-	async updateProfile(id: string, updateDto: any): Promise<Member> {
-		const member = await this.memberModel.findByIdAndUpdate(
-			id,
-			{ $set: updateDto },
-			{ new: true },
-		);
+	async getTopMembers(limit: number): Promise<Member[]> {
+		return this.memberModel
+			.find({ deletedAt: null, memberType: MemberType.USER })
+			.sort({ memberPoints: -1 })
+			.limit(limit)
+			.exec();
+	}
 
-		if (!member) {
-			throw new NotFoundException('Member not found');
+	private static readonly PROFILE_UPDATE_FIELDS = [
+		'memberNick', 'memberFullName', 'memberPhone', 'memberAddress', 'memberDesc', 'memberImage',
+	];
+
+	async updateProfile(id: string, updateDto: any): Promise<Member> {
+		const setUpdate: Record<string, any> = {};
+		for (const key of MemberService.PROFILE_UPDATE_FIELDS) {
+			if (updateDto[key] !== undefined && updateDto[key] !== null) {
+				setUpdate[key] = updateDto[key];
+			}
 		}
 
+		// Always persist memberImage when sent: normalize to path so it works after logout/login
+		if ('memberImage' in updateDto) {
+			const raw = updateDto.memberImage;
+			if (typeof raw === 'string' && raw.trim()) {
+				const img = raw.trim();
+				if (img.startsWith('http://') || img.startsWith('https://')) {
+					const match = img.match(/^(?:https?:\/\/[^/]+)(\/.*)$/);
+					setUpdate.memberImage = (match && match[1]) ? match[1] : img;
+				} else {
+					setUpdate.memberImage = img.startsWith('/') ? img : '/' + img;
+				}
+			} else {
+				setUpdate.memberImage = '';
+			}
+		}
+
+		const result = await this.memberModel.updateOne(
+			{ _id: id },
+			{ $set: setUpdate },
+		).exec();
+
+		if (result.matchedCount === 0) {
+			throw new NotFoundException('Member not found');
+		}
+		const member = await this.memberModel.findById(id).exec();
+		if (!member) throw new NotFoundException('Member not found');
 		return member;
 	}
 
@@ -214,18 +344,13 @@ export class MemberService {
 	 * @param telegramAuthData - Data from Telegram Login Widget
 	 * @returns Member object
 	 */
-	async loginWithTelegram(
-		telegramAuthData: TelegramAuthData,
-	): Promise<Member> {
-		// Validate Telegram authentication
-		await this.telegramAuthService.validateTelegramAuth(telegramAuthData);
+	async loginWithTelegram(authData: TelegramAuthData): Promise<Member> {
+		const isValid = await this.telegramAuthService.validateTelegramAuth(authData);
+		if (!isValid) {
+			throw new UnauthorizedException('Invalid Telegram login');
+		}
 
-		// Extract user data
-		const userData =
-			this.telegramAuthService.extractUserData(telegramAuthData);
-
-		// Try to find existing member by Telegram ID (stored in memberPhone or a new field)
-		// For now, we'll use memberPhone to store Telegram ID as string
+		const userData = this.telegramAuthService.extractUserData(authData);
 		const telegramIdString = `telegram_${userData.telegramId}`;
 		let member = await this.memberModel
 			.findOne({
@@ -236,59 +361,63 @@ export class MemberService {
 			.exec();
 
 		if (member) {
-			// Update member info if needed
-			if (userData.firstName && !member.memberFullName) {
-				member.memberFullName = userData.firstName;
-			}
-			if (userData.photoUrl && !member.memberImage) {
-				member.memberImage = userData.photoUrl;
-			}
-			if (userData.username && !member.memberNick) {
-				member.memberNick = userData.username;
-			}
-			await member.save();
-			return member;
+			// Update info if needed
+			if (userData.firstName) member.memberNick = userData.firstName;
+			if (userData.lastName) member.memberFullName = `${userData.firstName} ${userData.lastName}`.trim();
+			if (userData.photoUrl) member.memberImage = userData.photoUrl;
+			return member.save();
 		}
 
-		// Create new member
-		const memberNick =
-			userData.username || `user_${userData.telegramId}`;
-		
-		// Check if nick is already taken
-		const existingNick = await this.memberModel.findOne({
-			memberNick,
-			deletedAt: null,
-		});
-
-		const finalNick = existingNick
-			? `${memberNick}_${userData.telegramId}`
-			: memberNick;
-
+		// Create New Member
 		member = new this.memberModel({
+			memberNick: userData.firstName,
+			memberFullName: userData.lastName ? `${userData.firstName} ${userData.lastName}`.trim() : userData.firstName,
 			memberPhone: telegramIdString,
-			memberNick: finalNick,
-			memberPassword: undefined, // No password for Telegram auth
-			memberFullName: userData.firstName || '',
-			memberImage: userData.photoUrl || '',
 			memberAuthType: MemberAuthType.TELEGRAM,
 			memberStatus: MemberStatus.ACTIVE,
+			memberType: MemberType.USER,
+			memberImage: userData.photoUrl || '',
 		});
 
 		return member.save();
 	}
 
-	/**
-	 * Find member by Telegram ID
-	 */
-	async findByTelegramId(telegramId: number): Promise<Member | null> {
-		const telegramIdString = `telegram_${telegramId}`;
-		return this.memberModel
+	async loginWithGoogle(tokenId: string): Promise<Member> {
+		const payload = await this.googleAuthService.verifyGoogleToken(tokenId);
+		const googleId = payload.sub;
+		const email = payload.email;
+		const name = payload.name;
+		const picture = payload.picture;
+
+		const googleIdentifier = `google_${googleId}`;
+
+		let member = await this.memberModel
 			.findOne({
-				memberPhone: telegramIdString,
-				memberAuthType: MemberAuthType.TELEGRAM,
+				memberPhone: googleIdentifier,
+				memberAuthType: MemberAuthType.GOOGLE,
 				deletedAt: null,
 			})
 			.exec();
+
+		if (member) {
+			// Update info
+			if (name) member.memberNick = name;
+			if (picture) member.memberImage = picture;
+			return member.save();
+		}
+
+		// Create New Member
+		member = new this.memberModel({
+			memberNick: name || 'Google User',
+			memberFullName: name || 'Google User',
+			memberPhone: googleIdentifier,
+			memberAuthType: MemberAuthType.GOOGLE,
+			memberStatus: MemberStatus.ACTIVE,
+			memberType: MemberType.USER,
+			memberImage: picture || '',
+		});
+
+		return member.save();
 	}
 }
 
