@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   kickup-api:
     container_name: kickup-api
@@ -9,10 +7,11 @@ services:
     restart: always
     env_file:
       - .env
+    # Host 4002 -> container 3008 (must match PORT_API inside the API container)
     ports:
       - "4002:3008"
     environment:
-      - PORT_API=4002
+      - PORT_API=3008
       - NODE_ENV=development
     volumes:
       - kickup_uploads:/app/uploads
@@ -43,3 +42,11 @@ networks:
 
 volumes:
   kickup_uploads:
+
+
+# docker compose up -d
+#docker compose start
+#docker compose stop
+#docker compose down
+#docker compose restart
+

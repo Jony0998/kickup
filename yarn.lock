@@ -439,7 +439,7 @@
     "@babel/parser" "^7.28.6"
     "@babel/types" "^7.28.6"
 
-"@babel/traverse@^7.28.6", "@babel/traverse@^7.29.0":
+"@babel/traverse@^7.28.6":
   version "7.29.0"
   resolved "https://registry.npmjs.org/@babel/traverse/-/traverse-7.29.0.tgz"
   integrity sha512-4HPiQr0X7+waHfyXPZpWPfWL/J7dcN1mx9gL6WdQVMbPnF3+ZhSMs8tCxN7oHddJE9fhNE7+lxdnlyemKfJRuA==
@@ -452,7 +452,52 @@
     "@babel/types" "^7.29.0"
     debug "^4.3.1"
 
-"@babel/types@^7.0.0", "@babel/types@^7.20.7", "@babel/types@^7.28.2", "@babel/types@^7.28.6", "@babel/types@^7.29.0", "@babel/types@^7.3.3":
+"@babel/traverse@^7.29.0":
+  version "7.29.0"
+  resolved "https://registry.npmjs.org/@babel/traverse/-/traverse-7.29.0.tgz"
+  integrity sha512-4HPiQr0X7+waHfyXPZpWPfWL/J7dcN1mx9gL6WdQVMbPnF3+ZhSMs8tCxN7oHddJE9fhNE7+lxdnlyemKfJRuA==
+  dependencies:
+    "@babel/code-frame" "^7.29.0"
+    "@babel/generator" "^7.29.0"
+    "@babel/helper-globals" "^7.28.0"
+    "@babel/parser" "^7.29.0"
+    "@babel/template" "^7.28.6"
+    "@babel/types" "^7.29.0"
+    debug "^4.3.1"
+
+"@babel/types@^7.0.0":
+  version "7.29.0"
+  resolved "https://registry.npmjs.org/@babel/types/-/types-7.29.0.tgz"
+  integrity sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==
+  dependencies:
+    "@babel/helper-string-parser" "^7.27.1"
+    "@babel/helper-validator-identifier" "^7.28.5"
+
+"@babel/types@^7.20.7":
+  version "7.29.0"
+  resolved "https://registry.npmjs.org/@babel/types/-/types-7.29.0.tgz"
+  integrity sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==
+  dependencies:
+    "@babel/helper-string-parser" "^7.27.1"
+    "@babel/helper-validator-identifier" "^7.28.5"
+
+"@babel/types@^7.28.2":
+  version "7.29.0"
+  resolved "https://registry.npmjs.org/@babel/types/-/types-7.29.0.tgz"
+  integrity sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==
+  dependencies:
+    "@babel/helper-string-parser" "^7.27.1"
+    "@babel/helper-validator-identifier" "^7.28.5"
+
+"@babel/types@^7.28.6", "@babel/types@^7.29.0":
+  version "7.29.0"
+  resolved "https://registry.npmjs.org/@babel/types/-/types-7.29.0.tgz"
+  integrity sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==
+  dependencies:
+    "@babel/helper-string-parser" "^7.27.1"
+    "@babel/helper-validator-identifier" "^7.28.5"
+
+"@babel/types@^7.3.3":
   version "7.29.0"
   resolved "https://registry.npmjs.org/@babel/types/-/types-7.29.0.tgz"
   integrity sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==
@@ -542,8 +587,6 @@
 
 "@graphql-tools/schema@10.0.10":
   version "10.0.10"
-  resolved "https://registry.npmjs.org/@graphql-tools/schema/-/schema-10.0.10.tgz"
-  integrity sha512-TSdDvwgk1Fq3URDuZBMCPXlWLpRpxwaQ+0KqvycVwoHozYnBRZ2Ql9HVgDKnebkGQKmIk2enSeku+ERKxxSG0g==
   dependencies:
     "@graphql-tools/merge" "^9.0.11"
     "@graphql-tools/utils" "^10.6.1"
@@ -620,6 +663,11 @@
   integrity sha512-Jg8wNT1MUzIvhBFxViqrEhWDGzqymo3sV7z7ZsaWbZNDLXRJZoRGrjulp60YYtV4wfY8VIKcWidjojlLcWrd8Q==
   optionalDependencies:
     "@img/sharp-libvips-linuxmusl-x64" "1.2.4"
+
+"@img/sharp-win32-x64@0.34.5":
+  version "0.34.5"
+  resolved "https://registry.npmjs.org/@img/sharp-win32-x64/-/sharp-win32-x64-0.34.5.tgz"
+  integrity sha512-+29YMsqY2/9eFEiW93eqWnuLcWcufowXewwSNIT6UwZdUUCrM3oFjMWH/Z6/TMmb4hlFenmfAVbpWeup2jryCw==
 
 "@isaacs/cliui@^8.0.2":
   version "8.0.2"
@@ -1088,20 +1136,25 @@
     object-hash "3.0.0"
     tslib "2.8.1"
 
-"@next/env@16.2.0-canary.102":
-  version "16.2.0-canary.102"
-  resolved "https://registry.npmjs.org/@next/env/-/env-16.2.0-canary.102.tgz"
-  integrity sha512-fXCBXnxlL7WVCgScsgr8YDzj2XjKeXA4IJYX6Z6/uos09+VjFlu16eeOYkodP6P0pIU//MCEJ6sEF1MIubAAaw==
+"@next/env@16.2.0":
+  version "16.2.0"
+  resolved "https://registry.npmjs.org/@next/env/-/env-16.2.0.tgz"
+  integrity sha512-OZIbODWWAi0epQRCRjNe1VO45LOFBzgiyqmTLzIqWq6u1wrxKnAyz1HH6tgY/Mc81YzIjRPoYsPAEr4QV4l9TA==
 
-"@next/swc-linux-x64-gnu@16.2.0-canary.102":
-  version "16.2.0-canary.102"
-  resolved "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.2.0-canary.102.tgz"
-  integrity sha512-upi+XvPX1wz5OzP4MiiCsKS2GvrYbbGn2T9DM89nKGGkPHpKHv4rqBzWLLmOMxU+jbSg9fl8ZB/D3Je0/OYMEg==
+"@next/swc-linux-x64-gnu@16.2.0":
+  version "16.2.0"
+  resolved "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.2.0.tgz"
+  integrity sha512-FmbDcZQ8yJRq93EJSL6xaE0KK/Rslraf8fj1uViGxg7K4CKBCRYSubILJPEhjSgZurpcPQq12QNOJQ0DRJl6Hg==
 
-"@next/swc-linux-x64-musl@16.2.0-canary.102":
-  version "16.2.0-canary.102"
-  resolved "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-16.2.0-canary.102.tgz"
-  integrity sha512-IVn7sWvviGHxCrfCJRzNaVgtPI+2zmEeG3YSsowadgsYPeV4FO4DkHdixUVifMU27PCtZUpO4lEds829UDcBtg==
+"@next/swc-linux-x64-musl@16.2.0":
+  version "16.2.0"
+  resolved "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-16.2.0.tgz"
+  integrity sha512-HzjIHVkmGAwRbh/vzvoBWWEbb8BBZPxBvVbDQDvzHSf3D8RP/4vjw7MNLDXFF9Q1WEzeQyEj2zdxBtVAHu5Oyw==
+
+"@next/swc-win32-x64-msvc@16.2.0":
+  version "16.2.0"
+  resolved "https://registry.npmjs.org/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-16.2.0.tgz"
+  integrity sha512-DRrNJKW+/eimrZgdhVN1uvkN1OI4j6Lpefwr44jKQ0YQzztlmOBUUzHuV5GxOMPK3nmodAYElUVCY8ZXo/IWeA==
 
 "@noble/hashes@^1.1.5":
   version "1.8.0"
@@ -2754,9 +2807,9 @@ ee-first@1.1.1:
   integrity sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==
 
 electron-to-chromium@^1.5.263:
-  version "1.5.313"
-  resolved "https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.5.313.tgz"
-  integrity sha512-QBMrTWEf00GXZmJyx2lbYD45jpI3TUFnNIzJ5BBc8piGUDwMPa1GV6HJWTZVvY/eiN3fSopl7NRbgGp9sZ9LTA==
+  version "1.5.321"
+  resolved "https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.5.321.tgz"
+  integrity sha512-L2C7Q279W2D/J4PLZLk7sebOILDSWos7bMsMNN06rK482umHUrh/3lM8G7IlHFOYip2oAg5nha1rCMxr/rs6ZQ==
 
 emittery@^0.13.1:
   version "0.13.1"
@@ -4841,25 +4894,25 @@ neo-async@^2.6.2:
   integrity sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==
 
 next@^16.2.0-canary.52:
-  version "16.2.0-canary.102"
-  resolved "https://registry.npmjs.org/next/-/next-16.2.0-canary.102.tgz"
-  integrity sha512-9nvC4d4c4eRByJ0FWDdoH4OqgOqAx9p65KjfASjrUHa5URZDdi44fk0dpku05lA+xFQqap30tt5M64Kcs+oUaw==
+  version "16.2.0"
+  resolved "https://registry.npmjs.org/next/-/next-16.2.0.tgz"
+  integrity sha512-NLBVrJy1pbV1Yn00L5sU4vFyAHt5XuSjzrNyFnxo6Com0M0KrL6hHM5B99dbqXb2bE9pm4Ow3Zl1xp6HVY9edQ==
   dependencies:
-    "@next/env" "16.2.0-canary.102"
+    "@next/env" "16.2.0"
     "@swc/helpers" "0.5.15"
     baseline-browser-mapping "^2.9.19"
     caniuse-lite "^1.0.30001579"
     postcss "8.4.31"
     styled-jsx "5.1.6"
   optionalDependencies:
-    "@next/swc-darwin-arm64" "16.2.0-canary.102"
-    "@next/swc-darwin-x64" "16.2.0-canary.102"
-    "@next/swc-linux-arm64-gnu" "16.2.0-canary.102"
-    "@next/swc-linux-arm64-musl" "16.2.0-canary.102"
-    "@next/swc-linux-x64-gnu" "16.2.0-canary.102"
-    "@next/swc-linux-x64-musl" "16.2.0-canary.102"
-    "@next/swc-win32-arm64-msvc" "16.2.0-canary.102"
-    "@next/swc-win32-x64-msvc" "16.2.0-canary.102"
+    "@next/swc-darwin-arm64" "16.2.0"
+    "@next/swc-darwin-x64" "16.2.0"
+    "@next/swc-linux-arm64-gnu" "16.2.0"
+    "@next/swc-linux-arm64-musl" "16.2.0"
+    "@next/swc-linux-x64-gnu" "16.2.0"
+    "@next/swc-linux-x64-musl" "16.2.0"
+    "@next/swc-win32-arm64-msvc" "16.2.0"
+    "@next/swc-win32-x64-msvc" "16.2.0"
     sharp "^0.34.5"
 
 node-abort-controller@^3.0.1, node-abort-controller@^3.1.1:
@@ -5403,7 +5456,16 @@ scheduler@^0.27.0:
   resolved "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz"
   integrity sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==
 
-schema-utils@^3.1.1, schema-utils@^3.2.0:
+schema-utils@^3.1.1:
+  version "3.3.0"
+  resolved "https://registry.npmjs.org/schema-utils/-/schema-utils-3.3.0.tgz"
+  integrity sha512-pN/yOAvcC+5rQ5nERGuwrjLlYvLTbCibnZ1I7B1LaiAz9BRBlE9GMgE/eqV30P7aJQUf7Ddimy/RsbYO/GrVGg==
+  dependencies:
+    "@types/json-schema" "^7.0.8"
+    ajv "^6.12.5"
+    ajv-keywords "^3.5.2"
+
+schema-utils@^3.2.0:
   version "3.3.0"
   resolved "https://registry.npmjs.org/schema-utils/-/schema-utils-3.3.0.tgz"
   integrity sha512-pN/yOAvcC+5rQ5nERGuwrjLlYvLTbCibnZ1I7B1LaiAz9BRBlE9GMgE/eqV30P7aJQUf7Ddimy/RsbYO/GrVGg==
@@ -5447,7 +5509,26 @@ semver@^7.3.4, semver@^7.3.5, semver@^7.3.8, semver@^7.5.3, semver@^7.5.4, semve
   resolved "https://registry.npmjs.org/semver/-/semver-7.7.4.tgz"
   integrity sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==
 
-send@~0.19.0, send@~0.19.1:
+send@~0.19.0:
+  version "0.19.2"
+  resolved "https://registry.npmjs.org/send/-/send-0.19.2.tgz"
+  integrity sha512-VMbMxbDeehAxpOtWJXlcUS5E8iXh6QmN+BkRX1GARS3wRaXEEgzCcB10gTQazO42tpNIya8xIyNx8fll1OFPrg==
+  dependencies:
+    debug "2.6.9"
+    depd "2.0.0"
+    destroy "1.2.0"
+    encodeurl "~2.0.0"
+    escape-html "~1.0.3"
+    etag "~1.8.1"
+    fresh "~0.5.2"
+    http-errors "~2.0.1"
+    mime "1.6.0"
+    ms "2.1.3"
+    on-finished "~2.4.1"
+    range-parser "~1.2.1"
+    statuses "~2.0.2"
+
+send@~0.19.1:
   version "0.19.2"
   resolved "https://registry.npmjs.org/send/-/send-0.19.2.tgz"
   integrity sha512-VMbMxbDeehAxpOtWJXlcUS5E8iXh6QmN+BkRX1GARS3wRaXEEgzCcB10gTQazO42tpNIya8xIyNx8fll1OFPrg==
