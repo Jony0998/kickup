@@ -6,10 +6,50 @@ import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class MatchService {
+	// In-memory cache to reduce DB load on repeated navigation (GraphQL is POST so CDN/browser cache doesn't apply)
+	private static readonly matchListCache = new Map<string, { value: any; expiresAt: number }>();
+	private static readonly MATCH_LIST_CACHE_TTL_MS =
+		parseInt(process.env.MATCH_LIST_CACHE_TTL_MS ?? '8000', 10); // default 8s
+
+	private static getCached<T>(key: string): T | null {
+		const cached = this.matchListCache.get(key);
+		if (!cached) return null;
+		if (Date.now() > cached.expiresAt) {
+			this.matchListCache.delete(key);
+			return null;
+		}
+		return cached.value as T;
+	}
+
+	private static setCached<T>(key: string, value: T): void {
+		this.matchListCache.set(key, {
+			value,
+			expiresAt: Date.now() + this.MATCH_LIST_CACHE_TTL_MS,
+		});
+	}
+
+	private static clearCachedByPrefix(prefix: string): void {
+		for (const key of this.matchListCache.keys()) {
+			if (key.startsWith(prefix)) this.matchListCache.delete(key);
+		}
+	}
+
 	constructor(
 		@InjectModel('Match') private readonly matchModel: Model<Match>,
 		private readonly notificationService: NotificationService,
 	) { }
+
+	private normalizeLikedByArray(matches: any[]): any[] {
+		// GraphQL schema expects `likedBy?: string[]`, while Mongo stores refs as ObjectId.
+		return (matches || []).map((m) => {
+			if (Array.isArray(m?.likedBy)) {
+				m.likedBy = m.likedBy
+					.map((id) => (id as any)?.toString ? (id as any).toString() : String(id))
+					.filter((id) => !!id);
+			}
+			return m;
+		});
+	}
 
 	private async getPopulatedMatch(id: string): Promise<Match> {
 		if (!isValidObjectId(id)) return null;
@@ -61,6 +101,7 @@ export class MatchService {
 
 		const match = new this.matchModel(createMatchDto);
 		await match.save();
+		MatchService.clearCachedByPrefix('matches:');
 		return this.getPopulatedMatch(String(match._id));
 	}
 
@@ -73,6 +114,12 @@ export class MatchService {
 		skip?: number;
 	}): Promise<Match[]> {
 		const startedAt = Date.now();
+		const cacheKey = `matches:findAll:${JSON.stringify(filters ?? {})}`;
+		const cached = MatchService.getCached<Match[]>(cacheKey);
+		if (cached) {
+			if (process.env.DEBUG_TIMING === '1') console.log(`[MatchService.findAll cache] 0ms`);
+			return cached;
+		}
 		// Some historical documents may have `matchDate` missing/invalid types.
 		// GraphQL schema treats `matchDate` as non-nullable, so we filter them out.
 		const query: any = {
@@ -109,10 +156,12 @@ export class MatchService {
 			.skip(filters?.skip || 0)
 			.lean()
 			.exec();
+		const normalized = this.normalizeLikedByArray(result);
 		if (process.env.DEBUG_TIMING === '1') {
 			console.log(`[MatchService.findAll] ${Date.now() - startedAt}ms`);
 		}
-		return result as Match[];
+		MatchService.setCached(cacheKey, normalized);
+		return normalized as Match[];
 	}
 
 	async findOne(id: string): Promise<Match> {
@@ -144,6 +193,7 @@ export class MatchService {
 			{ $set: updateDto },
 			{ new: true },
 		);
+		MatchService.clearCachedByPrefix('matches:');
 
 		return this.getPopulatedMatch(id);
 	}
@@ -176,6 +226,7 @@ export class MatchService {
 		match.currentPlayers += 1;
 
 		await match.save();
+		MatchService.clearCachedByPrefix('matches:');
 
 		// Trigger notification for organizer
 		try {
@@ -204,6 +255,7 @@ export class MatchService {
 		match.currentPlayers = Math.max(0, match.currentPlayers - 1);
 
 		await match.save();
+		MatchService.clearCachedByPrefix('matches:');
 
 		// Trigger notification for organizer
 		try {
@@ -253,6 +305,7 @@ export class MatchService {
 		match.likes = (match.likedBy || []).length;
 
 		await match.save();
+		MatchService.clearCachedByPrefix('matches:');
 		return this.getPopulatedMatch(matchId);
 	}
 
@@ -261,11 +314,18 @@ export class MatchService {
 			deletedAt: new Date(),
 		});
 
+		MatchService.clearCachedByPrefix('matches:');
 		return !!result;
 	}
 
 	async getMatchesByOrganizer(organizerId: string): Promise<Match[]> {
 		const startedAt = Date.now();
+		const cacheKey = `matches:byOrganizer:${organizerId}`;
+		const cached = MatchService.getCached<Match[]>(cacheKey);
+		if (cached) {
+			if (process.env.DEBUG_TIMING === '1') console.log(`[MatchService.getMatchesByOrganizer cache] 0ms`);
+			return cached;
+		}
 		const result: any = await this.matchModel
 			.find({
 				organizerId,
@@ -276,14 +336,22 @@ export class MatchService {
 			.sort({ matchDate: -1 })
 			.lean()
 			.exec();
+		const normalized = this.normalizeLikedByArray(result);
 		if (process.env.DEBUG_TIMING === '1') {
 			console.log(`[MatchService.getMatchesByOrganizer] ${Date.now() - startedAt}ms organizerId=${organizerId}`);
 		}
-		return result as Match[];
+		MatchService.setCached(cacheKey, normalized);
+		return normalized as Match[];
 	}
 
 	async getUpcomingMatches(limit: number = 10): Promise<Match[]> {
 		const startedAt = Date.now();
+		const cacheKey = `matches:upcoming:${limit}`;
+		const cached = MatchService.getCached<Match[]>(cacheKey);
+		if (cached) {
+			if (process.env.DEBUG_TIMING === '1') console.log(`[MatchService.getUpcomingMatches cache] 0ms`);
+			return cached;
+		}
 		const result: any = await this.matchModel
 			.find({
 				matchStatus: MatchStatus.UPCOMING,
@@ -296,14 +364,22 @@ export class MatchService {
 			.limit(limit)
 			.lean()
 			.exec();
+		const normalized = this.normalizeLikedByArray(result);
 		if (process.env.DEBUG_TIMING === '1') {
 			console.log(`[MatchService.getUpcomingMatches] ${Date.now() - startedAt}ms limit=${limit}`);
 		}
-		return result as Match[];
+		MatchService.setCached(cacheKey, normalized);
+		return normalized as Match[];
 	}
 
 	async getMyJoinedMatches(memberId: string): Promise<Match[]> {
 		const startedAt = Date.now();
+		const cacheKey = `matches:myJoined:${memberId}`;
+		const cached = MatchService.getCached<Match[]>(cacheKey);
+		if (cached) {
+			if (process.env.DEBUG_TIMING === '1') console.log(`[MatchService.getMyJoinedMatches cache] 0ms`);
+			return cached;
+		}
 		const result: any = await this.matchModel
 			.find({
 				joinedPlayers: memberId,
@@ -315,10 +391,12 @@ export class MatchService {
 			.sort({ matchDate: 1 })
 			.lean()
 			.exec();
+		const normalized = this.normalizeLikedByArray(result);
 		if (process.env.DEBUG_TIMING === '1') {
 			console.log(`[MatchService.getMyJoinedMatches] ${Date.now() - startedAt}ms memberId=${memberId}`);
 		}
-		return result as Match[];
+		MatchService.setCached(cacheKey, normalized);
+		return normalized as Match[];
 	}
 
 	async searchMatches(filters: {
@@ -333,6 +411,12 @@ export class MatchService {
 		skip?: number;
 	}): Promise<Match[]> {
 		const startedAt = Date.now();
+		const cacheKey = `matches:search:${JSON.stringify(filters ?? {})}`;
+		const cached = MatchService.getCached<Match[]>(cacheKey);
+		if (cached) {
+			if (process.env.DEBUG_TIMING === '1') console.log(`[MatchService.searchMatches cache] 0ms`);
+			return cached;
+		}
 		const query: any = {
 			matchStatus: MatchStatus.UPCOMING,
 			matchDate: { $gte: new Date() },
@@ -378,10 +462,12 @@ export class MatchService {
 			.skip(filters.skip || 0)
 			.lean()
 			.exec();
+		const normalized = this.normalizeLikedByArray(result);
 		if (process.env.DEBUG_TIMING === '1') {
 			console.log(`[MatchService.searchMatches] ${Date.now() - startedAt}ms`);
 		}
-		return result as Match[];
+		MatchService.setCached(cacheKey, normalized);
+		return normalized as Match[];
 	}
 
 	async updateMatchStatus(
@@ -398,6 +484,7 @@ export class MatchService {
 			throw new NotFoundException('Match not found');
 		}
 
+		MatchService.clearCachedByPrefix('matches:');
 		return this.getPopulatedMatch(matchId);
 	}
 
@@ -414,6 +501,7 @@ export class MatchService {
 
 		match.matchStatus = MatchStatus.CANCELLED;
 		await match.save();
+		MatchService.clearCachedByPrefix('matches:');
 
 		// Notify all joined players
 		try {
@@ -453,6 +541,7 @@ export class MatchService {
 
 		match.checkedInPlayers.push(memberId as any);
 		await match.save();
+		MatchService.clearCachedByPrefix('matches:');
 		return this.getPopulatedMatch(matchId);
 	}
 }
