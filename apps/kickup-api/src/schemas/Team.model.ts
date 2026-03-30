@@ -216,6 +216,12 @@ TeamSchema.index({ ownerId: 1 });
 TeamSchema.index({ 'location.city': 1 });
 TeamSchema.index({ teamStatus: 1 });
 TeamSchema.index({ 'members.memberId': 1 });
+// Common read patterns in services:
+// - filter by `deletedAt: null` and sort by `createdAt`
+// - filter by `'members.memberId'` and `deletedAt: null`
+TeamSchema.index({ deletedAt: 1, createdAt: -1 });
+TeamSchema.index({ teamStatus: 1, deletedAt: 1, createdAt: -1 });
+TeamSchema.index({ 'members.memberId': 1, deletedAt: 1 });
 
 export default TeamSchema;
 

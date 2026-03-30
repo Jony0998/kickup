@@ -13,13 +13,15 @@ export class MatchService {
 
 	private async getPopulatedMatch(id: string): Promise<Match> {
 		if (!isValidObjectId(id)) return null;
-		return this.matchModel
+		const match = await this.matchModel
 			.findById(id)
 			.populate('organizerId', 'memberNick memberFullName memberImage')
 			.populate('fieldId', 'propertyName location images rating')
 			.populate('joinedPlayers', 'memberNick memberFullName memberImage')
 			.populate('checkedInPlayers', 'memberNick memberFullName memberImage')
+			.lean()
 			.exec();
+		return match as any;
 	}
 
 	async createMatch(createMatchDto: any): Promise<Match> {
@@ -65,7 +67,13 @@ export class MatchService {
 		limit?: number;
 		skip?: number;
 	}): Promise<Match[]> {
-		const query: any = { deletedAt: null };
+		const startedAt = Date.now();
+		// Some historical documents may have `matchDate` missing/invalid types.
+		// GraphQL schema treats `matchDate` as non-nullable, so we filter them out.
+		const query: any = {
+			deletedAt: null,
+			matchDate: { $ne: null, $exists: true, $type: 'date' },
+		};
 
 		if (filters?.status) {
 			query.matchStatus = filters.status;
@@ -87,14 +95,19 @@ export class MatchService {
 			query.matchDate = { $gte: startOfDay, $lte: endOfDay };
 		}
 
-		return this.matchModel
+		const result: any = await this.matchModel
 			.find(query)
 			.populate('organizerId', 'memberNick memberFullName memberImage')
 			.populate('fieldId', 'propertyName location images rating')
 			.sort({ matchDate: 1 })
 			.limit(filters?.limit || 20)
 			.skip(filters?.skip || 0)
+			.lean()
 			.exec();
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[MatchService.findAll] ${Date.now() - startedAt}ms`);
+		}
+		return result as Match[];
 	}
 
 	async findOne(id: string): Promise<Match> {
@@ -241,15 +254,26 @@ export class MatchService {
 	}
 
 	async getMatchesByOrganizer(organizerId: string): Promise<Match[]> {
-		return this.matchModel
-			.find({ organizerId, deletedAt: null })
+		const startedAt = Date.now();
+		const result: any = await this.matchModel
+			.find({
+				organizerId,
+				deletedAt: null,
+				matchDate: { $ne: null, $exists: true, $type: 'date' },
+			})
 			.populate('fieldId')
 			.sort({ matchDate: -1 })
+			.lean()
 			.exec();
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[MatchService.getMatchesByOrganizer] ${Date.now() - startedAt}ms organizerId=${organizerId}`);
+		}
+		return result as Match[];
 	}
 
 	async getUpcomingMatches(limit: number = 10): Promise<Match[]> {
-		return this.matchModel
+		const startedAt = Date.now();
+		const result: any = await this.matchModel
 			.find({
 				matchStatus: MatchStatus.UPCOMING,
 				matchDate: { $gte: new Date() },
@@ -259,19 +283,31 @@ export class MatchService {
 			.populate('fieldId', 'propertyName location images rating')
 			.sort({ matchDate: 1 })
 			.limit(limit)
+			.lean()
 			.exec();
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[MatchService.getUpcomingMatches] ${Date.now() - startedAt}ms limit=${limit}`);
+		}
+		return result as Match[];
 	}
 
 	async getMyJoinedMatches(memberId: string): Promise<Match[]> {
-		return this.matchModel
+		const startedAt = Date.now();
+		const result: any = await this.matchModel
 			.find({
 				joinedPlayers: memberId,
 				deletedAt: null,
+				matchDate: { $ne: null, $exists: true, $type: 'date' },
 			})
 			.populate('organizerId', 'memberNick memberFullName memberImage')
 			.populate('fieldId', 'propertyName location images rating')
 			.sort({ matchDate: 1 })
+			.lean()
 			.exec();
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[MatchService.getMyJoinedMatches] ${Date.now() - startedAt}ms memberId=${memberId}`);
+		}
+		return result as Match[];
 	}
 
 	async searchMatches(filters: {
@@ -285,6 +321,7 @@ export class MatchService {
 		limit?: number;
 		skip?: number;
 	}): Promise<Match[]> {
+		const startedAt = Date.now();
 		const query: any = {
 			matchStatus: MatchStatus.UPCOMING,
 			matchDate: { $gte: new Date() },
@@ -321,14 +358,19 @@ export class MatchService {
 			query.currentPlayers = { $gte: filters.minPlayers };
 		}
 
-		return this.matchModel
+		const result: any = await this.matchModel
 			.find(query)
 			.populate('organizerId', 'memberNick memberFullName memberImage')
 			.populate('fieldId', 'propertyName location images rating')
 			.sort({ matchDate: 1 })
 			.limit(filters.limit || 20)
 			.skip(filters.skip || 0)
+			.lean()
 			.exec();
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[MatchService.searchMatches] ${Date.now() - startedAt}ms`);
+		}
+		return result as Match[];
 	}
 
 	async updateMatchStatus(
