@@ -161,6 +161,12 @@ MatchSchema.index({ fieldId: 1 });
 MatchSchema.index({ organizerId: 1 });
 MatchSchema.index({ 'location.city': 1, 'location.district': 1 });
 MatchSchema.index({ matchStatus: 1, matchDate: 1 });
+// Services consistently filter by `deletedAt: null`:
+MatchSchema.index({ matchStatus: 1, matchDate: 1, deletedAt: 1 });
+MatchSchema.index({ matchDate: 1, deletedAt: 1 });
+MatchSchema.index({ organizerId: 1, deletedAt: 1 });
+MatchSchema.index({ joinedPlayers: 1, deletedAt: 1 });
+MatchSchema.index({ checkedInPlayers: 1, deletedAt: 1 });
 
 export default MatchSchema;
 

@@ -26,6 +26,7 @@ export class MemberService {
 
 	async register(registerDto: RegisterInput): Promise<Member> {
 		try {
+			const debug = process.env.DEBUG_TIMING === '1';
 			// Validate required fields
 			if (!registerDto.memberPhone || !registerDto.memberNick) {
 				throw new BadRequestException('Phone and Nick are required');
@@ -104,28 +105,34 @@ export class MemberService {
 				memberData.memberFullName = registerDto.memberFullName.trim();
 			}
 
-			console.log('Creating member with data:', {
-				memberPhone: memberData.memberPhone,
-				memberNick: memberData.memberNick,
-				memberType: memberData.memberType,
-				hasPassword: !!memberData.memberPassword
-			});
+			if (debug) {
+				console.log('Creating member with data:', {
+					memberPhone: memberData.memberPhone,
+					memberNick: memberData.memberNick,
+					memberType: memberData.memberType,
+					hasPassword: !!memberData.memberPassword
+				});
+			}
 
 			const member = new this.memberModel(memberData);
 
-			console.log('Attempting to save member to DB...');
-			console.log('Model Name: ', this.memberModel.modelName);
-			console.log('DB Name: ', this.memberModel.db.name);
-			console.log('Member Instance: ', member);
+			if (debug) {
+				console.log('Attempting to save member to DB...');
+				console.log('Model Name: ', this.memberModel.modelName);
+				console.log('DB Name: ', this.memberModel.db.name);
+				console.log('Member Instance: ', member);
+			}
 
 			const savedMember = await member.save();
-			console.log('Save result:', savedMember);
+			if (debug) {
+				console.log('Save result:', savedMember);
 
-			console.log('Member saved successfully to database:', {
-				_id: savedMember._id,
-				memberNick: savedMember.memberNick,
-				memberPhone: savedMember.memberPhone,
-			});
+				console.log('Member saved successfully to database:', {
+					_id: savedMember._id,
+					memberNick: savedMember.memberNick,
+					memberPhone: savedMember.memberPhone,
+				});
+			}
 
 			return savedMember;
 		} catch (error) {
@@ -150,6 +157,7 @@ export class MemberService {
 	async login(
 		loginDto: LoginInput,
 	): Promise<Member> {
+		const startedAt = Date.now();
 		const member = await this.memberModel
 			.findOne({
 				$or: [
@@ -177,9 +185,10 @@ export class MemberService {
 			throw new UnauthorizedException(Message.WRONG_PASSWORD);
 		}
 
-		// Return full member by id so memberImage and all fields are included (fixes image lost after logout/login)
-		const fullMember = await this.memberModel.findById(member._id).exec();
-		return fullMember ?? member;
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[MemberService.login] ${Date.now() - startedAt}ms`);
+		}
+		return member;
 	}
 
 	async findOne(id: string): Promise<Member> {

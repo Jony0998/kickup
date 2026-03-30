@@ -73,6 +73,7 @@ export class TeamService {
 		limit?: number;
 		skip?: number;
 	}): Promise<Team[]> {
+		const startedAt = Date.now();
 		const query: any = { deletedAt: null };
 
 		if (filters?.city) {
@@ -83,7 +84,7 @@ export class TeamService {
 			query.teamStatus = filters.status;
 		}
 
-		return this.teamModel
+		const result: any = await this.teamModel
 			.find(query)
 			.populate('ownerId', 'memberNick memberFullName memberImage')
 			.populate('captainId', 'memberNick memberFullName memberImage')
@@ -91,10 +92,16 @@ export class TeamService {
 			.sort({ createdAt: -1 })
 			.limit(filters?.limit || 50)
 			.skip(filters?.skip || 0)
+			.lean()
 			.exec();
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[TeamService.findAll] ${Date.now() - startedAt}ms`);
+		}
+		return result as Team[];
 	}
 
 	async findOne(teamId: string): Promise<Team> {
+		const startedAt = Date.now();
 		if (!isValidObjectId(teamId)) {
 			console.log('TeamService: Invalid ObjectId requested:', teamId);
 			throw new NotFoundException('Team not found');
@@ -115,6 +122,9 @@ export class TeamService {
 		team.views += 1;
 		await team.save();
 
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[TeamService.findOne] ${Date.now() - startedAt}ms teamId=${teamId}`);
+		}
 		return team;
 	}
 
@@ -310,7 +320,8 @@ export class TeamService {
 	}
 
 	async getMyTeams(memberId: string): Promise<Team[]> {
-		return this.teamModel
+		const startedAt = Date.now();
+		const result: any = await this.teamModel
 			.find({
 				'members.memberId': memberId,
 				deletedAt: null,
@@ -318,11 +329,17 @@ export class TeamService {
 			.populate('ownerId', 'memberNick memberFullName memberImage')
 			.populate('captainId', 'memberNick memberFullName memberImage')
 			.sort({ createdAt: -1 })
+			.lean()
 			.exec();
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[TeamService.getMyTeams] ${Date.now() - startedAt}ms memberId=${memberId}`);
+		}
+		return result as Team[];
 	}
 
 	async searchTeams(searchTerm: string, limit = 20): Promise<Team[]> {
-		return this.teamModel
+		const startedAt = Date.now();
+		const result: any = await this.teamModel
 			.find({
 				$or: [
 					{ teamName: { $regex: searchTerm, $options: 'i' } },
@@ -334,7 +351,12 @@ export class TeamService {
 			.populate('ownerId', 'memberNick memberFullName memberImage')
 			.sort({ views: -1 })
 			.limit(limit)
+			.lean()
 			.exec();
+		if (process.env.DEBUG_TIMING === '1') {
+			console.log(`[TeamService.searchTeams] ${Date.now() - startedAt}ms term=${searchTerm}`);
+		}
+		return result as Team[];
 	}
 
 	async followTeam(teamId: string, memberId: string): Promise<Team> {
