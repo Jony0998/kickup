@@ -21,6 +21,11 @@ export class MatchService {
 			.populate('checkedInPlayers', 'memberNick memberFullName memberImage')
 			.lean()
 			.exec();
+		if (!match) return match;
+		// GraphQL schema expects `likedBy?: string[]`, but Mongo stores ObjectId refs.
+		match.likedBy = (match.likedBy || [])
+			.map((id) => (id as any)?.toString ? (id as any).toString() : String(id))
+			.filter((id) => !!id);
 		return match as any;
 	}
 
@@ -229,17 +234,23 @@ export class MatchService {
 			throw new NotFoundException('Match not found');
 		}
 
-		if (match.likedBy.includes(memberId as any)) {
-			// Unlike
-			match.likedBy = match.likedBy.filter(
-				(id) => id.toString() !== memberId,
-			);
-			match.likes = Math.max(0, match.likes - 1);
+		// `likedBy` contains ObjectId refs, while `memberId` is a string.
+		// Using `.includes(memberId)` breaks the toggle, so always compare by `toString()`.
+		const likedByIds = (match.likedBy || [])
+			.map((id) => id?.toString())
+			.filter((id) => !!id);
+		const alreadyLiked = likedByIds.some((id) => id === memberId);
+
+		if (alreadyLiked) {
+			// Unlike: remove all occurrences for safety.
+			match.likedBy = likedByIds.filter((id) => id !== memberId) as any;
 		} else {
-			// Like
-			match.likedBy.push(memberId as any);
-			match.likes += 1;
+			// Like: append and keep a single entry.
+			match.likedBy = [...likedByIds, memberId] as any;
 		}
+
+		// Keep `likes` consistent with `likedBy` array.
+		match.likes = (match.likedBy || []).length;
 
 		await match.save();
 		return this.getPopulatedMatch(matchId);
