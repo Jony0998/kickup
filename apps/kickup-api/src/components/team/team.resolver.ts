@@ -89,7 +89,7 @@ export class TeamResolver {
 	async findAll(
 		@Args('city', { nullable: true }) city?: string,
 		@Args('status', { nullable: true, type: () => TeamStatus }) status?: TeamStatus,
-		@Args('limit', { nullable: true, defaultValue: 50, type: () => Int }) limit?: number,
+		@Args('limit', { nullable: true, defaultValue: 20, type: () => Int }) limit?: number,
 		@Args('skip', { nullable: true, defaultValue: 0, type: () => Int }) skip?: number,
 	) {
 		const teams = await this.teamService.findAll({ city, status, limit, skip });
@@ -124,11 +124,7 @@ export class TeamResolver {
 		@CurrentUser() user: JwtPayload,
 		@Args('input') input: CreateTeamInput,
 	) {
-		console.log('=== CREATE TEAM RESOLVER STARTED ===');
-		console.log('User:', user.sub);
-		console.log('Input:', input);
 		const team = await this.teamService.createTeam(user.sub, input);
-		console.log('Team created in service, converting to GraphQL type...');
 		return this.convertToGraphQLTeam(team);
 	}
 

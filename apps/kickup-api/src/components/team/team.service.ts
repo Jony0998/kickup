@@ -13,15 +13,51 @@ import { Message } from '../../libs/enums/common.enum';
 
 @Injectable()
 export class TeamService {
+	// In-memory cache to reduce DB load on repeated navigation (GraphQL is POST so CDN/browser cache doesn't apply)
+	private static readonly teamListCache = new Map<
+		string,
+		{ value: Team[]; expiresAt: number }
+	>();
+	private static readonly TEAM_LIST_CACHE_TTL_MS = parseInt(
+		process.env.TEAM_LIST_CACHE_TTL_MS ?? '8000',
+		10,
+	); // default 8s
+
+	private static getCached(key: string): Team[] | null {
+		const cached = this.teamListCache.get(key);
+		if (!cached) return null;
+		if (Date.now() > cached.expiresAt) {
+			this.teamListCache.delete(key);
+			return null;
+		}
+		return cached.value;
+	}
+
+	private static setCached(key: string, value: Team[]): void {
+		this.teamListCache.set(key, {
+			value,
+			expiresAt: Date.now() + this.TEAM_LIST_CACHE_TTL_MS,
+		});
+	}
+
+	private static clearCachedByPrefix(prefix: string): void {
+		for (const key of this.teamListCache.keys()) {
+			if (key.startsWith(prefix)) this.teamListCache.delete(key);
+		}
+	}
+
 	constructor(
 		@InjectModel('Team') private readonly teamModel: Model<Team>,
 		@InjectModel('Member') private readonly memberModel: Model<Member>,
 	) { }
 
 	async createTeam(ownerId: string, createTeamDto: any): Promise<Team> {
-		console.log('=== CREATE TEAM STARTED ===');
-		console.log('Owner ID:', ownerId);
-		console.log('Create Team DTO:', createTeamDto);
+		const debug = process.env.DEBUG_LOGS === '1';
+		if (debug) {
+			console.log('=== CREATE TEAM STARTED ===');
+			console.log('Owner ID:', ownerId);
+			console.log('Create Team DTO:', createTeamDto);
+		}
 
 		// Check if team name already exists
 		const existingTeam = await this.teamModel.findOne({
@@ -30,7 +66,7 @@ export class TeamService {
 		});
 
 		if (existingTeam) {
-			console.log('Team name already exists:', createTeamDto.teamName);
+			if (debug) console.log('Team name already exists:', createTeamDto.teamName);
 			throw new ConflictException('Team name already exists');
 		}
 
@@ -61,9 +97,10 @@ export class TeamService {
 				: undefined,
 		});
 
-		console.log('Attempting to save team to DB...');
+		if (debug) console.log('Attempting to save team to DB...');
 		const savedTeam = await team.save();
-		console.log('Team saved successfully:', savedTeam._id);
+		if (debug) console.log('Team saved successfully:', savedTeam._id);
+		TeamService.clearCachedByPrefix('teams:');
 		return savedTeam;
 	}
 
@@ -74,6 +111,13 @@ export class TeamService {
 		skip?: number;
 	}): Promise<Team[]> {
 		const startedAt = Date.now();
+		const cacheKey = `teams:findAll:${JSON.stringify(filters ?? {})}`;
+		const cached = TeamService.getCached(cacheKey);
+		if (cached) {
+			if (process.env.DEBUG_TIMING === '1')
+				console.log(`[TeamService.findAll cache] 0ms`);
+			return cached;
+		}
 		const query: any = { deletedAt: null };
 
 		if (filters?.city) {
@@ -88,15 +132,15 @@ export class TeamService {
 			.find(query)
 			.populate('ownerId', 'memberNick memberFullName memberImage')
 			.populate('captainId', 'memberNick memberFullName memberImage')
-			.populate('members.memberId', 'memberNick memberFullName memberImage')
 			.sort({ createdAt: -1 })
-			.limit(filters?.limit || 50)
+			.limit(Math.min(filters?.limit || 20, 20))
 			.skip(filters?.skip || 0)
 			.lean()
 			.exec();
 		if (process.env.DEBUG_TIMING === '1') {
 			console.log(`[TeamService.findAll] ${Date.now() - startedAt}ms`);
 		}
+		TeamService.setCached(cacheKey, result as Team[]);
 		return result as Team[];
 	}
 
@@ -156,7 +200,9 @@ export class TeamService {
 		}
 
 		Object.assign(team, updateData);
-		return team.save();
+		const saved = await team.save();
+		TeamService.clearCachedByPrefix('teams:');
+		return saved;
 	}
 
 	async addMember(teamId: string, memberId: string, requesterId: string, position?: string, jerseyNumber?: number): Promise<Team> {
@@ -204,7 +250,9 @@ export class TeamService {
 			jerseyNumber,
 		});
 
-		return team.save();
+		const saved = await team.save();
+		TeamService.clearCachedByPrefix('teams:');
+		return saved;
 	}
 
 	/** Current user joins a team by team id (self-add). */
