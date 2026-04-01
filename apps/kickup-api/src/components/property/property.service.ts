@@ -5,13 +5,48 @@ import { Property, PropertyStatus, PropertyType } from '../../schemas/Property.m
 
 @Injectable()
 export class PropertyService {
+	// In-memory cache to reduce DB load on repeated navigation
+	private static readonly propertyListCache = new Map<
+		string,
+		{ value: Property[]; expiresAt: number }
+	>();
+	private static readonly PROPERTY_LIST_CACHE_TTL_MS = parseInt(
+		process.env.PROPERTY_LIST_CACHE_TTL_MS ?? '8000',
+		10,
+	); // default 8s
+
+	private static getCached(key: string): Property[] | null {
+		const cached = this.propertyListCache.get(key);
+		if (!cached) return null;
+		if (Date.now() > cached.expiresAt) {
+			this.propertyListCache.delete(key);
+			return null;
+		}
+		return cached.value;
+	}
+
+	private static setCached(key: string, value: Property[]): void {
+		this.propertyListCache.set(key, {
+			value,
+			expiresAt: Date.now() + this.PROPERTY_LIST_CACHE_TTL_MS,
+		});
+	}
+
+	private static clearCachedByPrefix(prefix: string): void {
+		for (const key of this.propertyListCache.keys()) {
+			if (key.startsWith(prefix)) this.propertyListCache.delete(key);
+		}
+	}
+
 	constructor(
 		@InjectModel('Property') private readonly propertyModel: Model<Property>,
 	) { }
 
 	async createProperty(createPropertyDto: any): Promise<Property> {
 		const property = new this.propertyModel(createPropertyDto);
-		return property.save();
+		const saved = await property.save();
+		PropertyService.clearCachedByPrefix('properties:');
+		return saved;
 	}
 
 	async findAll(filters?: {
@@ -24,6 +59,9 @@ export class PropertyService {
 		limit?: number;
 		skip?: number;
 	}): Promise<Property[]> {
+		const cacheKey = `properties:findAll:${JSON.stringify(filters ?? {})}`;
+		const cached = PropertyService.getCached(cacheKey);
+		if (cached) return cached;
 		const query: any = { deletedAt: null };
 
 		if (filters?.type) {
@@ -50,13 +88,16 @@ export class PropertyService {
 			query.isRecommended = filters.isRecommended;
 		}
 
-		return this.propertyModel
+		const result = await this.propertyModel
 			.find(query)
 			.populate('ownerId', 'memberNick memberFullName memberImage')
 			.sort({ isRecommended: -1, bookings: -1 })
 			.limit(filters?.limit || 20)
 			.skip(filters?.skip || 0)
+			.lean()
 			.exec();
+		PropertyService.setCached(cacheKey, result as any);
+		return result as any;
 	}
 
 	async findOne(id: string): Promise<Property> {
@@ -90,6 +131,7 @@ export class PropertyService {
 			throw new NotFoundException('Property not found');
 		}
 
+		PropertyService.clearCachedByPrefix('properties:');
 		return property;
 	}
 
@@ -97,12 +139,15 @@ export class PropertyService {
 		const result = await this.propertyModel.findByIdAndUpdate(id, {
 			deletedAt: new Date(),
 		});
-
+		PropertyService.clearCachedByPrefix('properties:');
 		return !!result;
 	}
 
 	async getRecommendedProperties(limit: number = 10): Promise<Property[]> {
-		return this.propertyModel
+		const cacheKey = `properties:recommended:${limit}`;
+		const cached = PropertyService.getCached(cacheKey);
+		if (cached) return cached;
+		const result = await this.propertyModel
 			.find({
 				isRecommended: true,
 				propertyStatus: PropertyStatus.ACTIVE,
@@ -110,7 +155,10 @@ export class PropertyService {
 			})
 			.sort({ bookings: -1, rating: -1 })
 			.limit(limit)
+			.lean()
 			.exec();
+		PropertyService.setCached(cacheKey, result as any);
+		return result as any;
 	}
 
 	async searchByLocation(
@@ -137,7 +185,9 @@ export class PropertyService {
 			throw new NotFoundException('Property not found');
 		}
 		property.bookings += 1;
-		return property.save();
+		const saved = await property.save();
+		PropertyService.clearCachedByPrefix('properties:');
+		return saved;
 	}
 
 	/**

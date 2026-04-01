@@ -22,6 +22,21 @@ export class ReviewResolver {
 		);
 	}
 
+	@Query(() => [Review], { name: 'ratings' })
+	async getRatingsByTarget(
+		@Args('reviewType', { type: () => ReviewType }) reviewType: ReviewType,
+		@Args('targetId', { type: () => ID }) targetId: string,
+		@Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
+		@Args('skip', { nullable: true, defaultValue: 0 }) skip?: number,
+	) {
+		return this.reviewService.getReviewsByTarget(
+			reviewType,
+			targetId,
+			limit,
+			skip,
+		);
+	}
+
 	@Query(() => Review, { name: 'myReview', nullable: true })
 	async getReviewByUser(
 		@Args('reviewType', { type: () => ReviewType }) reviewType: ReviewType,

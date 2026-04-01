@@ -51,7 +51,7 @@ export class MatchService {
 		});
 	}
 
-	private async getPopulatedMatch(id: string): Promise<Match> {
+	private async getPopulatedMatch(id: string): Promise<Match | null> {
 		if (!isValidObjectId(id)) return null;
 		const match = await this.matchModel
 			.findById(id)
@@ -61,7 +61,7 @@ export class MatchService {
 			.populate('checkedInPlayers', 'memberNick memberFullName memberImage')
 			.lean()
 			.exec();
-		if (!match) return match;
+		if (!match) return null;
 		// GraphQL schema expects `likedBy?: string[]`, but Mongo stores ObjectId refs.
 		match.likedBy = (match.likedBy || [])
 			.map((id) => (id as any)?.toString ? (id as any).toString() : String(id))
