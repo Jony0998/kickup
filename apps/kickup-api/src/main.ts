@@ -9,10 +9,19 @@ async function bootstrap() {
   // Use Socket.IO adapter so WebSocket gateways (e.g. chat) work with socket.io-client
   app.useWebSocketAdapter(new IoAdapter(app));
 
-  // CORS: in production set CORS_ORIGIN (e.g. https://yoursite.com) to restrict origins
   const corsOrigin = process.env.CORS_ORIGIN;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction && !corsOrigin) {
+    throw new Error('CORS_ORIGIN env o\'rnatilmagan! Production da majburiy.');
+  }
+
+  const allowedOrigins = corsOrigin
+    ? corsOrigin.split(',').map((o) => o.trim())
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000'];
+
   app.enableCors({
-    origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : true,
+    origin: allowedOrigins,
     credentials: true,
   });
 

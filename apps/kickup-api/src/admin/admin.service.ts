@@ -73,7 +73,10 @@ export class AdminService {
 		secretKey: string,
 	) {
 		// Secret key tekshirish
-		const validSecretKey = process.env.ADMIN_SECRET_KEY || 'CHANGE_THIS_IN_PRODUCTION';
+		const validSecretKey = process.env.ADMIN_SECRET_KEY;
+		if (!validSecretKey) {
+			throw new Error('ADMIN_SECRET_KEY env o\'rnatilmagan! Server konfiguratsiyasini tekshiring.');
+		}
 		if (secretKey !== validSecretKey) {
 			throw new BadRequestException('Invalid admin secret key');
 		}

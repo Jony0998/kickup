@@ -18,7 +18,7 @@ import './libs/enums/graphql-enums.bootstrap';
     ConfigModule.forRoot(),
     GraphQLModule.forRoot({
       driver: ApolloDriver,
-      playground: true,
+      playground: process.env.NODE_ENV !== 'production',
       autoSchemaFile: true,
       uploads: false,
       // Required for setting httpOnly cookies (login/register) and reading them in AuthGuard

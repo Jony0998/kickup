@@ -12,7 +12,7 @@
     "start:dev": "nest start kickup-api --watch",
     "start:dev:batch": "nest start kickup-batch --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "NODE_ENV=production node dist/kickup-api/src/main",
+    "start:prod": "NODE_ENV=production node dist/apps/kickup-api/main",
     "start:prod:batch": " NODE_ENV=production node dist/apps/kickup-batch/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
